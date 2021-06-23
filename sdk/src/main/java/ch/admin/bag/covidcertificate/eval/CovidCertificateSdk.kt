@@ -47,7 +47,8 @@ import kotlin.concurrent.timer
 object CovidCertificateSdk {
 
 	private const val ROOT_CA_TYPE = "X.509"
-	private const val ASSET_PATH_ROOT_CA = "swiss_governmentrootcaii.der"
+	// TODO AT: Disable backend integration
+	private const val ASSET_PATH_ROOT_CA = ""
 
 	private val TRUST_LIST_REFRESH_INTERVAL = TimeUnit.HOURS.toMillis(1L)
 
@@ -57,13 +58,14 @@ object CovidCertificateSdk {
 	private var trustListLifecycleObserver: TrustListLifecycleObserver? = null
 
 	fun init(context: Context) {
-		val retrofit = createRetrofit(context)
+		// TODO: AT - Disable backend integration
+		/*val retrofit = createRetrofit(context)
 		val certificateService = retrofit.create(CertificateService::class.java)
 		val revocationService = retrofit.create(RevocationService::class.java)
-		val ruleSetService = retrofit.create(RuleSetService::class.java)
+		val ruleSetService = retrofit.create(RuleSetService::class.java)*/
 
 		val certificateStorage = CertificateSecureStorage.getInstance(context)
-		val trustListRepository = TrustListRepository(certificateService, revocationService, ruleSetService, certificateStorage)
+		val trustListRepository = TrustListRepository(null, null, null, /*certificateService, revocationService, ruleSetService, */certificateStorage)
 		val nationalRulesVerifier = NationalRulesVerifier(context)
 		val certificateVerifier = CertificateVerifier(nationalRulesVerifier)
 		certificateVerificationController = CertificateVerificationController(trustListRepository, certificateVerifier)
