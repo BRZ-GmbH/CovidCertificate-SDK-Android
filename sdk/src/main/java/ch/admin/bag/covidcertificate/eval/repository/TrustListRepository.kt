@@ -11,8 +11,7 @@
 package ch.admin.bag.covidcertificate.eval.repository
 
 import ch.admin.bag.covidcertificate.eval.data.TrustListStore
-import ch.admin.bag.covidcertificate.eval.models.Jwks
-import ch.admin.bag.covidcertificate.eval.models.TrustList
+import ch.admin.bag.covidcertificate.eval.models.*
 import ch.admin.bag.covidcertificate.eval.net.CertificateService
 import ch.admin.bag.covidcertificate.eval.net.RevocationService
 import ch.admin.bag.covidcertificate.eval.net.RuleSetService
@@ -54,14 +53,16 @@ internal class TrustListRepository(
 	 * Get the trust list from the provider or null if at least one of the values is not set
 	 */
 	fun getTrustList(): TrustList? {
-		return if (store.areSignaturesValid() && store.areRevokedCertificatesValid() && store.areRuleSetsValid()) {
+		// TODO: AT - Disable trustlist validity check
+		return TrustList(Jwks(listOf()), RevokedCertificates(revokedCerts = emptyList(), 0), RuleSet(rules = listOf(), valueSets = RuleValueSets(null, null, null, null, null, null, AcceptanceCriterias(0, 0, 0, 0, 0, 0)), validDuration = 0))
+		/*return if (store.areSignaturesValid() && store.areRevokedCertificatesValid() && store.areRuleSetsValid()) {
 			val signatures = store.certificateSignatures!!
 			val revokedCertificates = store.revokedCertificates!!
 			val ruleSet = store.ruleset!!
 			TrustList(signatures, revokedCertificates, ruleSet)
 		} else {
 			null
-		}
+		}*/
 	}
 
 	private suspend fun refreshCertificateSignatures(forceRefresh: Boolean, isRecursive: Boolean = false): Unit =
