@@ -56,8 +56,8 @@ internal object Eval {
 
 		val valid = VerificationCoseService.decode(signatures.certs, cose, type)
 
-    // TODO: Signature check currently fails because we do not fetch the correct key list
-    return CheckSignatureState.SUCCESS
+    	// TODO: AT - Disable signature check because of missing key list without backend integration
+    	return CheckSignatureState.SUCCESS
 		//return if (valid) CheckSignatureState.SUCCESS else CheckSignatureState.INVALID(SIGNATURE_COSE_INVALID)
 	}
 
