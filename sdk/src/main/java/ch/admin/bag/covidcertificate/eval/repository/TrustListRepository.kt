@@ -24,9 +24,9 @@ import java.time.Instant
 import java.time.temporal.ChronoUnit
 
 internal class TrustListRepository(
-	private val certificateService: CertificateService,
-	private val revocationService: RevocationService,
-	private val ruleSetService: RuleSetService,
+	private val certificateService: CertificateService?,
+	private val revocationService: RevocationService?,
+	private val ruleSetService: RuleSetService?,
 	private val store: TrustListStore,
 ) {
 
@@ -66,10 +66,12 @@ internal class TrustListRepository(
 
 	private suspend fun refreshCertificateSignatures(forceRefresh: Boolean, isRecursive: Boolean = false): Unit =
 		withContext(Dispatchers.IO) {
-			val shouldLoadSignatures = forceRefresh || !store.areSignaturesValid()
+			// TODO: AT - Disable certificate signature update
+			val shouldLoadSignatures = false // forceRefresh || !store.areSignaturesValid()
 			if (shouldLoadSignatures) {
 				// Load the active certificate key IDs
-				val activeCertificatesResponse = certificateService.getActiveSignerCertificateKeyIds()
+				// TODO: AT - Disable certificate signature update
+				/*val activeCertificatesResponse = certificateService.getActiveSignerCertificateKeyIds()
 				val activeCertificatesBody = activeCertificatesResponse.body()
 				if (activeCertificatesResponse.isSuccessful && activeCertificatesBody != null) {
 					val allCertificates = store.certificateSignatures?.certs?.toMutableList() ?: mutableListOf()
@@ -111,33 +113,37 @@ internal class TrustListRepository(
 						val newValidUntil = Instant.now().plus(validDuration, ChronoUnit.MILLIS).toEpochMilli()
 						store.certificateSignaturesValidUntil = newValidUntil
 					}
-				}
+				}*/
 			}
 		}
 
 	private suspend fun refreshRevokedCertificates(forceRefresh: Boolean) = withContext(Dispatchers.IO) {
-		val shouldLoadRevokedCertificates = forceRefresh || !store.areRevokedCertificatesValid()
+		// TODO: AT - Disable revoked certificate update
+		val shouldLoadRevokedCertificates = false // forceRefresh || !store.areRevokedCertificatesValid()
 		if (shouldLoadRevokedCertificates) {
-			val response = revocationService.getRevokedCertificates()
+			// TODO: AT - Disable certificate signature update
+			/*val response = revocationService.getRevokedCertificates()
 			val body = response.body()
 			if (response.isSuccessful && body != null) {
 				store.revokedCertificates = body
 				val newValidUntil = Instant.now().plus(body.validDuration, ChronoUnit.MILLIS).toEpochMilli()
 				store.revokedCertificatesValidUntil = newValidUntil
-			}
+			}*/
 		}
 	}
 
 	private suspend fun refreshRuleSet(forceRefresh: Boolean) = withContext(Dispatchers.IO) {
-		val shouldLoadRuleSet = forceRefresh || !store.areRuleSetsValid()
+		// TODO: AT - Disable national rules update
+		val shouldLoadRuleSet = false // forceRefresh || !store.areRuleSetsValid()
 		if (shouldLoadRuleSet) {
-			val response = ruleSetService.getRuleset()
+			// TODO: AT - Disable certificate signature update
+			/*val response = ruleSetService.getRuleset()
 			val body = response.body()
 			if (response.isSuccessful && body != null) {
 				store.ruleset = body
 				val newValidUntil = Instant.now().plus(body.validDuration, ChronoUnit.MILLIS).toEpochMilli()
 				store.rulesetValidUntil = newValidUntil
-			}
+			}*/
 		}
 	}
 
