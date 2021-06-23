@@ -28,16 +28,16 @@ android {
 
 	productFlavors {
 		dev {
-			buildConfigField "String", "BASE_URL_TRUST_LIST", '"https://www.cc-d.bit.admin.ch/trust/v1/"'
-			buildConfigField "String", "LEAF_CERT_CN", '"CH01-AppContentCertificate-ref"'
+			buildConfigField "String", "BASE_URL_TRUST_LIST", '""'
+			buildConfigField "String", "LEAF_CERT_CN", '""'
 		}
 		abn {
-			buildConfigField "String", "BASE_URL_TRUST_LIST", '"https://www.cc-a.bit.admin.ch/trust/v1/"'
-			buildConfigField "String", "LEAF_CERT_CN", '"CH01-AppContentCertificate-abn"'
+			buildConfigField "String", "BASE_URL_TRUST_LIST", '""'
+			buildConfigField "String", "LEAF_CERT_CN", '""'
 		}
 		prod {
-			buildConfigField "String", "BASE_URL_TRUST_LIST", '"https://www.cc.bit.admin.ch/trust/v1/"'
-			buildConfigField "String", "LEAF_CERT_CN", '"CH01-AppContentCertificate"'
+			buildConfigField "String", "BASE_URL_TRUST_LIST", '""'
+			buildConfigField "String", "LEAF_CERT_CN", '""'
 		}
 	}
 
