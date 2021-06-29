@@ -42,10 +42,11 @@ internal object Eval {
 
 		val type = dccHolder.certType ?: return CheckSignatureState.INVALID(EvalErrorCodes.SIGNATURE_TYPE_INVALID)
 
-		val timestampError = TimestampService.decode(dccHolder)
+		// TODO: AT - Disable signature timestamp check
+		/*val timestampError = TimestampService.decode(dccHolder)
 		if (timestampError != null) {
 			return CheckSignatureState.INVALID(timestampError)
-		}
+		}*/
 
 		/* Repeat decode chain to get and verify COSE signature */
 
