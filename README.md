@@ -11,7 +11,6 @@ Es basiert auf auf der OpenSource-App des [Schweizer Bundesamt für Information 
 
 The CovidCertificate SDK for Android is work in progress and is not yet complete.
 We are continuing the development of this library, and the API is likely to change.
-Please contact the FOITT (BIT) before integrating this SDK in your app.
 
 ## Lizenz
 
