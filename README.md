@@ -1,12 +1,10 @@
 # CovidCertificate-SDK-Android
 
-[![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://github.com/admin-ch/CovidCertificate-SDK-iOS/blob/main/LICENSE)
+[![License: MPL 2.0](https://img.shields.io/badge/License-MPL%202.0-brightgreen.svg)](https://github.com/BRZ-GmbH/CovidCertificate-SDK-iOS/blob/main/LICENSE)
 
-This is the implementation of the [Electronic Health Certificates (EHN) specification](https://github.com/ehn-digital-green-development/hcert-spec)
-used to verify the validity of COVID Certificates [in Switzerland](https://github.com/admin-ch/CovidCertificate-App-Android).
+This is the Austrian implementation of the Electronic Health Certificates (EHN) Specification [[1](https://github.com/ehn-digital-green-development/hcert-spec)] used to verify the validity of Digital Covid Certificates.
 
-It is partially based on [these](https://github.com/ehn-digital-green-development/hcert-kotlin)
-[two](https://github.com/DIGGSweden/dgc-java) implementations.
+It is based on the open source work of the Swiss [Federal Office of Information Technology, Systems and Telecommunication FOITT](https://github.com/admin-ch/CovidCertificate-SDK-Android)
 
 ## Work in Progress
 
