@@ -11,15 +11,12 @@
 package at.gv.brz.eval.data
 
 import android.content.Context
-import android.util.Log
 import androidx.security.crypto.EncryptedFile
 import androidx.security.crypto.MasterKeys
 import java.io.ByteArrayOutputStream
 import java.io.File
 
 internal class EncryptedFileStorage(private val path: String) {
-
-	private val TAG = EncryptedFileStorage::class.java.simpleName
 
 	fun write(context: Context, content: String) {
 		val masterKeyAlias: String = MasterKeys.getOrCreate(MasterKeys.AES256_GCM_SPEC)
@@ -39,8 +36,7 @@ internal class EncryptedFileStorage(private val path: String) {
 		val encryptedOutputStream = encryptedFile.openFileOutput()
 		try {
 			encryptedOutputStream.write(content.encodeToByteArray())
-		} catch (e: Exception) {
-			Log.e(TAG, e.toString())
+		} catch (ignored: Exception) {
 		} finally {
 			encryptedOutputStream.close()
 		}
