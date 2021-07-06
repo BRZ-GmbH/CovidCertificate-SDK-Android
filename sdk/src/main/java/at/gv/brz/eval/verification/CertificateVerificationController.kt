@@ -10,7 +10,6 @@
 
 package at.gv.brz.eval.verification
 
-import android.util.Log
 import at.gv.brz.eval.repository.TrustListRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -41,9 +40,8 @@ class CertificateVerificationController internal constructor(
 					trustListRepository.refreshTrustList(forceRefresh = true)
 					trustListLoadingJob = null
 					onCompletionCallback.invoke()
-				} catch (e: Exception) {
+				} catch (ignored: Exception) {
 					// Loading trust list failed, keep using last stored version
-					Log.e(TAG, "Manually refreshing trust list failed", e)
 				}
 			}
 		}
@@ -72,9 +70,8 @@ class CertificateVerificationController internal constructor(
 				try {
 					trustListRepository.refreshTrustList(forceRefresh = false)
 					trustListLoadingJob = null
-				} catch (e: Exception) {
+				} catch (ignored: Exception) {
 					// Loading trust list failed, keep using last stored version
-					Log.e(TAG, "Refreshing trust list as part of certificate verification task failed", e)
 				}
 			}
 		}

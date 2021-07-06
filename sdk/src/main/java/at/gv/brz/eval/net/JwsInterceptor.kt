@@ -55,8 +55,7 @@ class JwsInterceptor(
 			body = Moshi.Builder().build()
 				.adapter<Claims>(Types.newParameterizedType(Map::class.java, String::class.java, Object::class.java))
 				.toJson(claimsJws.body)
-		} catch (e: Throwable) {
-			e.printStackTrace()
+		} catch (ignored: Throwable) {
 			throw IOException("Failed to parse/verify JWS")
 		}
 

@@ -33,8 +33,7 @@ internal object VerificationCoseService {
 				if (signature.validate(pubKey)) {
 					return true
 				}
-			} catch (e: Throwable) {
-				e.printStackTrace()
+			} catch (ignored: Throwable) {
 			}
 		}
 

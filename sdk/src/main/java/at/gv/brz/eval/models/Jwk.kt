@@ -10,15 +10,12 @@
 
 package at.gv.brz.eval.models
 
-import android.util.Log
 import at.gv.brz.eval.utils.CryptoUtil
 import at.gv.brz.eval.utils.fromBase64
 import com.squareup.moshi.JsonClass
 import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 import java.security.PublicKey
-
-private const val TAG = "Jwk"
 
 @Serializable
 @JsonClass(generateAdapter = true)
@@ -74,15 +71,12 @@ data class Jwk(
 				ALG_ES_256 -> CryptoUtil.ecPublicKeyFromCoordinate(x!!.fromBase64(), y!!.fromBase64())
 				ALG_RSA_256 -> CryptoUtil.rsaPublicKeyFromModulusExponent(n!!.fromBase64(), e!!.fromBase64())
 				else -> {
-					Log.e(TAG, "Invalid kty!")
 					null
 				}
 			}
-		} catch (e: Exception) {
+		} catch (ignored: Exception) {
 			// Can throw e.g. if the (x, y) pair is not a point on the curve
-			e.printStackTrace()
 		}
-		Log.w(TAG, "Failed to create PublicKey for kid $keyId")
 		return null
 	}
 
