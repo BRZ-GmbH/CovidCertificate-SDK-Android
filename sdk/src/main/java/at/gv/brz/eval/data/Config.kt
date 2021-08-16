@@ -13,6 +13,6 @@ package at.gv.brz.eval.data
 import at.gv.brz.eval.net.UserAgentInterceptor
 
 object Config {
-	var appToken: String = ""
-	var userAgent: UserAgentInterceptor.UserAgentGenerator = UserAgentInterceptor.UserAgentGenerator { "covid-cert-sdk" }
+	var apiToken: String = ""
+	var userAgent: UserAgentInterceptor.UserAgentGenerator = UserAgentInterceptor.UserAgentGenerator { "brz-wallet" }
 }

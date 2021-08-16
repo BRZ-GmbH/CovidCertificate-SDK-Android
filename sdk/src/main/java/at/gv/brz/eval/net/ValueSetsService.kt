@@ -12,18 +12,21 @@ package at.gv.brz.eval.net
 
 import at.gv.brz.eval.models.ActiveSignerCertificates
 import at.gv.brz.eval.models.Jwks
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Headers
 import retrofit2.http.Query
 
-interface CertificateService {
+interface ValueSetsService {
 
-	@Headers("Accept: application/json+jws")
-	@GET("keys/list")
-	suspend fun getActiveSignerCertificateKeyIds(): Response<ActiveSignerCertificates>
+	@Headers("Accept: application/octet-stream")
+	@GET("valuesets")
+	//@GET("ehn/values/v1/bin")
+	suspend fun getValueSets(): Response<ResponseBody>
 
-	@Headers("Accept: application/json+jws")
-	@GET("keys/updates?certFormat=ANDROID")
-	suspend fun getSignerCertificates(@Query("since") since: String? = null): Response<Jwks>
+	@Headers("Accept: application/octet-stream")
+	@GET("valuesetssig")
+	//@GET("ehn/values/v1/sig")
+	suspend fun getValueSetsSignature(): Response<ResponseBody>
 }

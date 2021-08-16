@@ -10,8 +10,15 @@
 
 package at.gv.brz.eval.models
 
+import com.lyft.kronos.KronosClock
+import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
+import ehn.techiop.hcert.kotlin.trust.TrustListV2
+import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
+import java.time.ZonedDateTime
+
 data class TrustList(
-	val signatures: Jwks,
-	val revokedCertificates: RevokedCertificates,
-	val ruleSet: RuleSet
+	val signatures: TrustListV2,
+	val valueSets: ValueSetContainer,
+	val businessRules: BusinessRulesContainer,
+	val kronosClock: KronosClock
 )

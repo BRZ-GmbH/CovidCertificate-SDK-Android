@@ -20,6 +20,45 @@ sealed class DecodeState {
 	data class ERROR(val error: Error) : DecodeState()
 }
 
+/**
+ * Verification Result for a single region that was validated
+ */
+data class VerificationRegionResult(val region: String?, val valid: Boolean)
+
+/**
+ * Verification Result for a single certificate. If verification was successful, it
+ * contains the verification results for all regions
+ */
+sealed class VerificationResultStatus {
+	object LOADING: VerificationResultStatus()
+	object SIGNATURE_INVALID: VerificationResultStatus()
+	object ERROR: VerificationResultStatus()
+	object TIMEMISSING: VerificationResultStatus()
+	object DATAEXPIRED: VerificationResultStatus()
+	data class SUCCESS(val results: List<VerificationRegionResult>): VerificationResultStatus()
+
+	fun isInvalid(): Boolean {
+		if (this is SIGNATURE_INVALID || this is ERROR || this.containsOnlyInvalidVerification()) {
+			return true
+		}
+		return false
+	}
+
+	fun containsOnlyInvalidVerification(): Boolean {
+		if (this is SUCCESS) {
+			return this.results.none { it.valid }
+		}
+		return false
+	}
+
+	fun results(): List<VerificationRegionResult> {
+		if (this is SUCCESS) {
+			return this.results
+		}
+		return listOf()
+	}
+}
+
 sealed class CheckSignatureState {
 	object SUCCESS : CheckSignatureState()
 	data class INVALID(val signatureErrorCode: String) : CheckSignatureState()

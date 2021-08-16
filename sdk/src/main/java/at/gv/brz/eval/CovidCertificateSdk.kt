@@ -18,18 +18,12 @@ import androidx.lifecycle.coroutineScope
 import at.gv.brz.eval.data.CertificateSecureStorage
 import at.gv.brz.eval.data.Config
 import at.gv.brz.eval.data.moshi.RawJsonStringAdapter
-import at.gv.brz.eval.nationalrules.NationalRulesVerifier
-import at.gv.brz.eval.net.ApiKeyInterceptor
-import at.gv.brz.eval.net.CertificatePinning
-import at.gv.brz.eval.net.CertificateService
-import at.gv.brz.eval.net.JwsInterceptor
-import at.gv.brz.eval.net.RevocationService
-import at.gv.brz.eval.net.RuleSetService
-import at.gv.brz.eval.net.UserAgentInterceptor
+import at.gv.brz.eval.net.*
 import at.gv.brz.eval.repository.TrustListRepository
 import at.gv.brz.eval.verification.CertificateVerificationController
 import at.gv.brz.eval.verification.CertificateVerifier
-import at.gv.brz.eval.BuildConfig
+import com.lyft.kronos.AndroidClockFactory
+import com.lyft.kronos.KronosClock
 import com.squareup.moshi.Moshi
 import okhttp3.Cache
 import okhttp3.OkHttpClient
@@ -37,37 +31,30 @@ import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
 import retrofit2.converter.moshi.MoshiConverterFactory
 import retrofit2.converter.scalars.ScalarsConverterFactory
-import java.security.cert.Certificate
-import java.security.cert.CertificateFactory
-import java.security.cert.X509Certificate
 import java.util.*
 import java.util.concurrent.TimeUnit
 import kotlin.concurrent.timer
 
 object CovidCertificateSdk {
 
-	private const val ROOT_CA_TYPE = "X.509"
-	// TODO AT: Disable backend integration
-	private const val ASSET_PATH_ROOT_CA = ""
-
-	private val TRUST_LIST_REFRESH_INTERVAL = TimeUnit.HOURS.toMillis(1L)
+	private val TRUST_LIST_REFRESH_INTERVAL = TimeUnit.HOURS.toMillis(24L)
 
 	private lateinit var certificateVerificationController: CertificateVerificationController
 	private var isInitialized = false
-	private var trustListRefreshTimer: Timer? = null
 	private var trustListLifecycleObserver: TrustListLifecycleObserver? = null
+	private lateinit var kronosClock: KronosClock
 
 	fun init(context: Context) {
-		// TODO: AT - Disable backend integration
-		/*val retrofit = createRetrofit(context)
-		val certificateService = retrofit.create(CertificateService::class.java)
-		val revocationService = retrofit.create(RevocationService::class.java)
-		val ruleSetService = retrofit.create(RuleSetService::class.java)*/
+		val retrofit = createRetrofit(context)
+		val trustlistService = retrofit.create(TrustlistService::class.java)
+		val valueSetsService = retrofit.create(ValueSetsService::class.java)
+		val businessRulesService = retrofit.create(BusinessRulesService::class.java)
+
+		kronosClock = AndroidClockFactory.createKronosClock(context, syncListener = null, ntpHosts = listOf("ts1.univie.ac.at", "ts2.univie.ac.at"))
 
 		val certificateStorage = CertificateSecureStorage.getInstance(context)
-		val trustListRepository = TrustListRepository(null, null, null, /*certificateService, revocationService, ruleSetService, */certificateStorage)
-		val nationalRulesVerifier = NationalRulesVerifier(context)
-		val certificateVerifier = CertificateVerifier(nationalRulesVerifier)
+		val trustListRepository = TrustListRepository(trustlistService, valueSetsService, businessRulesService, certificateStorage, BuildConfig.TRUST_ANCHOR_CERTIFICATE, kronosClock)
+		val certificateVerifier = CertificateVerifier()
 		certificateVerificationController = CertificateVerificationController(trustListRepository, certificateVerifier)
 
 		isInitialized = true
@@ -92,14 +79,6 @@ object CovidCertificateSdk {
 		return certificateVerificationController
 	}
 
-	fun getRootCa(context: Context): X509Certificate {
-		val certificateFactory = CertificateFactory.getInstance(ROOT_CA_TYPE)
-		val inputStream = context.assets.open(ASSET_PATH_ROOT_CA)
-		return certificateFactory.generateCertificate(inputStream) as X509Certificate
-	}
-
-	fun getExpectedCommonName() = BuildConfig.LEAF_CERT_CN
-
 	private fun requireInitialized() {
 		if (!isInitialized) {
 			throw IllegalStateException("CovidCertificateSdk must be initialized by calling init(context)")
@@ -107,13 +86,8 @@ object CovidCertificateSdk {
 	}
 
 	private fun createRetrofit(context: Context): Retrofit {
-		val rootCa = getRootCa(context)
-		val expectedCommonName = getExpectedCommonName()
 		val okHttpBuilder = OkHttpClient.Builder()
-			.certificatePinner(CertificatePinning.pinner)
-			.addInterceptor(JwsInterceptor(rootCa, expectedCommonName))
-			.addInterceptor(ApiKeyInterceptor())
-			.addInterceptor(UserAgentInterceptor(Config.userAgent))
+			//.addInterceptor(ApiKeyInterceptor())
 
 		val cacheSize = 5 * 1024 * 1024 // 5 MB
 		val cache = Cache(context.cacheDir, cacheSize.toLong())
@@ -127,8 +101,9 @@ object CovidCertificateSdk {
 		return Retrofit.Builder()
 			.baseUrl(BuildConfig.BASE_URL_TRUST_LIST)
 			.client(okHttpBuilder.build())
-			.addConverterFactory(ScalarsConverterFactory.create())
-			.addConverterFactory(MoshiConverterFactory.create(Moshi.Builder().add(RawJsonStringAdapter()).build()))
+			//.addConverterFactory(ScalarsConverterFactory.create())
+			//.addConverterFactory(MoshiConverterFactory.create(Moshi.Builder().add(RawJsonStringAdapter()).build()))
+			.addConverterFactory(ToByteConvertFactory())
 			.build()
 	}
 
@@ -141,17 +116,20 @@ object CovidCertificateSdk {
 			lifecycle.removeObserver(this)
 		}
 
+		@OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
+		fun onCreate() {
+			certificateVerificationController.refreshTrustList(lifecycle.coroutineScope, true)
+			kronosClock.syncInBackground()
+		}
+
 		@OnLifecycleEvent(Lifecycle.Event.ON_START)
 		fun onStart() {
-			trustListRefreshTimer?.cancel()
-			trustListRefreshTimer = timer(initialDelay = TRUST_LIST_REFRESH_INTERVAL, period = TRUST_LIST_REFRESH_INTERVAL) {
-				certificateVerificationController.refreshTrustList(lifecycle.coroutineScope)
-			}
+			certificateVerificationController.refreshTrustList(lifecycle.coroutineScope, false)
+			kronosClock.syncInBackground()
 		}
 
 		@OnLifecycleEvent(Lifecycle.Event.ON_STOP)
 		fun onStop() {
-			trustListRefreshTimer?.cancel()
 		}
 	}
 

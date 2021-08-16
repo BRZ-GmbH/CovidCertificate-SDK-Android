@@ -11,18 +11,16 @@
 package at.gv.brz.eval.verification
 
 import android.net.ConnectivityManager
-import at.gv.brz.eval.data.EvalErrorCodes
-import at.gv.brz.eval.data.state.Error
-import at.gv.brz.eval.data.state.VerificationState
+import at.gv.brz.eval.data.state.VerificationResultStatus
 import at.gv.brz.eval.models.DccHolder
 import at.gv.brz.eval.models.TrustList
-import at.gv.brz.eval.utils.NetworkUtil
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import java.io.InputStream
 
-class CertificateVerificationTask(val dccHolder: DccHolder, val connectivityManager: ConnectivityManager) {
+class CertificateVerificationTask(val dccHolder: DccHolder, val connectivityManager: ConnectivityManager, val schemaJson: String, val countryCode: String, val regions: List<String>, val checkDefaultRegion: Boolean) {
 
-	private val mutableVerificationStateFlow = MutableStateFlow<VerificationState>(VerificationState.LOADING)
+	private val mutableVerificationStateFlow = MutableStateFlow<VerificationResultStatus>(VerificationResultStatus.LOADING)
 	val verificationStateFlow = mutableVerificationStateFlow.asStateFlow()
 
 	/**
@@ -30,23 +28,12 @@ class CertificateVerificationTask(val dccHolder: DccHolder, val connectivityMana
 	 */
 	internal suspend fun execute(verifier: CertificateVerifier, trustList: TrustList?) {
 		if (trustList != null) {
-			val state = verifier.verify(dccHolder, trustList)
+			val state = verifier.verify(dccHolder, trustList, trustList.kronosClock, schemaJson, countryCode, regions, checkDefaultRegion)
 			mutableVerificationStateFlow.emit(state)
 		} else {
-			val hasNetwork = NetworkUtil.isNetworkAvailable(connectivityManager)
-			if (hasNetwork) {
-				mutableVerificationStateFlow.emit(
-					VerificationState.ERROR(
-						Error(EvalErrorCodes.GENERAL_NETWORK_FAILURE, dccHolder = dccHolder), null
-					)
-				)
-			} else {
-				mutableVerificationStateFlow.emit(
-					VerificationState.ERROR(
-						Error(EvalErrorCodes.GENERAL_OFFLINE, dccHolder = dccHolder), null
-					)
-				)
-			}
+			mutableVerificationStateFlow.emit(
+				VerificationResultStatus.DATAEXPIRED
+			)
 		}
 	}
 

@@ -10,15 +10,21 @@
 
 package at.gv.brz.eval.net
 
-import at.gv.brz.eval.models.RuleSet
+import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.GET
 import retrofit2.http.Headers
+import retrofit2.http.Query
 
-interface RuleSetService {
+interface TrustlistService {
 
-	@Headers("Accept: application/json+jws")
-	@GET("verificationRules")
-	suspend fun getRuleset() : Response<RuleSet>
+	@Headers("Accept: application/octet-stream")
+	@GET("trustlist")
+	//@GET("ehn/cert/listv2")
+	suspend fun getTrustlist(): Response<ResponseBody>
 
+	@Headers("Accept: application/octet-stream")
+	@GET("trustlistsig")
+	//@GET("ehn/cert/sigv2")
+	suspend fun getTrustlistSignature(): Response<ResponseBody>
 }

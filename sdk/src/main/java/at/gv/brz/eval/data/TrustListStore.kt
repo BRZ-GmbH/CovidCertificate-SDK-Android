@@ -13,21 +13,26 @@ package at.gv.brz.eval.data
 import at.gv.brz.eval.models.Jwks
 import at.gv.brz.eval.models.RevokedCertificates
 import at.gv.brz.eval.models.RuleSet
+import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
+import ehn.techiop.hcert.kotlin.trust.TrustListV2
+import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
 
 interface TrustListStore {
 
-	var certificateSignaturesValidUntil: Long
-	var certificateSignatures: Jwks?
-	var certificatesSinceHeader: String?
+	var certificateSignatures: TrustListV2?
 
-	var revokedCertificatesValidUntil: Long
-	var revokedCertificates: RevokedCertificates?
+	var valueSets: ValueSetContainer?
 
-	var rulesetValidUntil: Long
-	var ruleset: RuleSet?
+	var businessRules: BusinessRulesContainer?
 
-	fun areSignaturesValid(): Boolean
-	fun areRevokedCertificatesValid(): Boolean
-	fun areRuleSetsValid(): Boolean
+	fun areTrustlistCertificatesValid(): Boolean
+	fun areValueSetsValid(): Boolean
+	fun areBusinessRulesValid(): Boolean
+
+	fun shouldUpdateTrustListCertificates(): Boolean
+	fun shouldUpdateValueSets(): Boolean
+	fun shouldUpdateBusinessRules(): Boolean
+
+	fun dataExpired(): Boolean
 
 }

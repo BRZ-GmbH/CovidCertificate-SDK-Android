@@ -20,31 +20,45 @@ import at.gv.brz.eval.models.RevokedCertificates
 import at.gv.brz.eval.models.RuleSet
 import at.gv.brz.eval.utils.SingletonHolder
 import com.squareup.moshi.Moshi
+import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
+import ehn.techiop.hcert.kotlin.trust.TrustListV2
+import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
 import java.io.IOException
 import java.security.GeneralSecurityException
 import java.time.Instant
+import java.util.concurrent.TimeUnit
 
 internal class CertificateSecureStorage private constructor(private val context: Context) : TrustListStore {
 
 	companion object : SingletonHolder<CertificateSecureStorage, Context>(::CertificateSecureStorage) {
 		private const val PREFERENCES_NAME = "CertificateSecureStorage"
-		private const val FILE_PATH_CERTIFICATE_SIGNATURES = "jwks.json"
-		private const val FILE_PATH_REVOKED_CERTIFICATES = "revokedList.json"
-		private const val FILE_PATH_RULESET = "ruleset.json"
+		private const val FILE_PATH_CERTIFICATE_SIGNATURES = "signatures.json"
+		private const val FILE_PATH_VALUESETS = "valuesets.json"
+		private const val FILE_PATH_RULESET = "businessrules.json"
 
-		private const val KEY_CERTIFICATE_SIGNATURES_VALID_UNTIL = "KEY_CERTIFICATE_SIGNATURES_VALID_UNTIL"
-		private const val KEY_CERTIFICATE_SIGNATURES_SINCE_HEADER = "KEY_CERTIFICATE_SIGNATURES_SINCE_HEADER"
-		private const val KEY_REVOKED_CERTIFICATES_VALID_UNTIL = "KEY_REVOKED_CERTIFICATES_VALID_UNTIL"
-		private const val KEY_RULESET_VALID_UNTIL = "KEY_RULESET_VALID_UNTIL"
+		private const val KEY_TRUSTLIST_LAST_UPDATE = "KEY_TRUSTLIST_LAST_UPDATE"
+		private const val KEY_VALUESETS_LAST_UPDATE = "KEY_VALUESETS_LAST_UPDATE"
+		private const val KEY_RULESET_LAST_UPDATE = "KEY_RULESET_LAST_UPDATE"
 
-		private val moshi = Moshi.Builder().add(RawJsonStringAdapter()).build()
-		private val jwksAdapter = moshi.adapter(Jwks::class.java)
-		private val revokedCertificatesAdapter = moshi.adapter(RevokedCertificates::class.java)
-		private val rulesetAdapter = moshi.adapter(RuleSet::class.java)
+		private val TRUSTLIST_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(24L)
+		private val VALUESETS_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(24L)
+		private val RULESET_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(24L)
+
+		private val TRUSTLIST_MAX_AGE = TimeUnit.HOURS.toMillis(72L)
+		private val VALUESETS_MAX_AGE = TimeUnit.HOURS.toMillis(72L)
+		private val RULESET_MAX_AGE = TimeUnit.HOURS.toMillis(72L)
+
+		private val moshi = Moshi.Builder().add(RawJsonStringAdapter()).addLast(
+			KotlinJsonAdapterFactory()
+		).build()
+		private val trustListAdapter = moshi.adapter(TrustListV2::class.java)
+		private val valueSetsAdapter = moshi.adapter(ValueSetContainer::class.java)
+		private val businessRulesAdapter = moshi.adapter(BusinessRulesContainer::class.java)
 	}
 
 	private val certificateFileStorage = EncryptedFileStorage(FILE_PATH_CERTIFICATE_SIGNATURES)
-	private val revocationFileStorage = EncryptedFileStorage(FILE_PATH_REVOKED_CERTIFICATES)
+	private val valueSetsFileStorage = EncryptedFileStorage(FILE_PATH_VALUESETS)
 	private val ruleSetFileStorage = EncryptedFileStorage(FILE_PATH_RULESET)
 
 	private val preferences = initializeSharedPreferences(context)
@@ -76,75 +90,102 @@ internal class CertificateSecureStorage private constructor(private val context:
 			)
 	}
 
-	override var certificateSignaturesValidUntil: Long
-		get() = preferences.getLong(KEY_CERTIFICATE_SIGNATURES_VALID_UNTIL, 0L)
-		set(value) {
-			preferences.edit().putLong(KEY_CERTIFICATE_SIGNATURES_VALID_UNTIL, value).apply()
-		}
-
-	override var certificateSignatures: Jwks? = null
+	override var certificateSignatures: TrustListV2? = null
 		get() {
 			if (field == null) {
-				field = certificateFileStorage.read(context)?.let { jwksAdapter.fromJson(it) }
+				field = certificateFileStorage.read(context)?.let { trustListAdapter.fromJson(it) }
 			}
 			return field
 		}
 		set(value) {
-			certificateFileStorage.write(context, jwksAdapter.toJson(value))
+			certificateFileStorage.write(context, trustListAdapter.toJson(value))
+			trustlistLastUpdate = Instant.now().toEpochMilli()
 			field = value
 		}
 
-	override var certificatesSinceHeader: String?
-		get() = preferences.getString(KEY_CERTIFICATE_SIGNATURES_SINCE_HEADER, null)
-		set(value) {
-			preferences.edit().putString(KEY_CERTIFICATE_SIGNATURES_SINCE_HEADER, value).apply()
-		}
-
-	override var revokedCertificatesValidUntil: Long
-		get() = preferences.getLong(KEY_REVOKED_CERTIFICATES_VALID_UNTIL, 0L)
-		set(value) {
-			preferences.edit().putLong(KEY_REVOKED_CERTIFICATES_VALID_UNTIL, value).apply()
-		}
-
-	override var revokedCertificates: RevokedCertificates? = null
+	override var valueSets: ValueSetContainer? = null
 		get() {
 			if (field == null) {
-				field = revocationFileStorage.read(context)?.let { revokedCertificatesAdapter.fromJson(it) }
+				field = valueSetsFileStorage.read(context)?.let { valueSetsAdapter.fromJson(it) }
 			}
 			return field
 		}
 		set(value) {
-			revocationFileStorage.write(context, revokedCertificatesAdapter.toJson(value))
+			valueSetsFileStorage.write(context, valueSetsAdapter.toJson(value))
+			valueSetsLastUpdate = Instant.now().toEpochMilli()
 			field = value
 		}
 
-	override var rulesetValidUntil: Long
-		get() = preferences.getLong(KEY_RULESET_VALID_UNTIL, 0L)
-		set(value) {
-			preferences.edit().putLong(KEY_RULESET_VALID_UNTIL, value).apply()
-		}
 
-	override var ruleset: RuleSet? = null
+	override var businessRules: BusinessRulesContainer? = null
 		get() {
 			if (field == null) {
-				field = ruleSetFileStorage.read(context)?.let { rulesetAdapter.fromJson(it) }
+				field = ruleSetFileStorage.read(context)?.let { businessRulesAdapter.fromJson(it) }
 			}
 			return field
 		}
 		set(value) {
-			ruleSetFileStorage.write(context, rulesetAdapter.toJson(value))
+			ruleSetFileStorage.write(context, businessRulesAdapter.toJson(value))
+			businessRulesLastUpdate = Instant.now().toEpochMilli()
 			field = value
 		}
 
-	override fun areSignaturesValid(): Boolean {
-		return certificateSignatures != null && Instant.now().toEpochMilli() < certificateSignaturesValidUntil
+	var trustlistLastUpdate: Long
+		get() = preferences.getLong(KEY_TRUSTLIST_LAST_UPDATE, 0L)
+		set(value) {
+			preferences.edit().putLong(KEY_TRUSTLIST_LAST_UPDATE, value).apply()
+		}
+
+	var valueSetsLastUpdate: Long
+		get() = preferences.getLong(KEY_VALUESETS_LAST_UPDATE, 0L)
+		set(value) {
+			preferences.edit().putLong(KEY_VALUESETS_LAST_UPDATE, value).apply()
+		}
+
+	var businessRulesLastUpdate: Long
+		get() = preferences.getLong(KEY_RULESET_LAST_UPDATE, 0L)
+		set(value) {
+			preferences.edit().putLong(KEY_RULESET_LAST_UPDATE, value).apply()
+		}
+
+	override fun shouldUpdateTrustListCertificates(): Boolean {
+		return trustlistLastUpdate == 0L || (Instant.now().toEpochMilli() - trustlistLastUpdate) > TRUSTLIST_UPDATE_INTERVAL
 	}
 
-	override fun areRevokedCertificatesValid(): Boolean {
-		return revokedCertificates != null && Instant.now().toEpochMilli() < revokedCertificatesValidUntil
+	override fun shouldUpdateValueSets(): Boolean {
+		return valueSetsLastUpdate == 0L || (Instant.now().toEpochMilli() - valueSetsLastUpdate) > VALUESETS_UPDATE_INTERVAL
 	}
 
-	override fun areRuleSetsValid(): Boolean {
-		return ruleset != null && Instant.now().toEpochMilli() < rulesetValidUntil
+	override fun shouldUpdateBusinessRules(): Boolean {
+		return businessRulesLastUpdate == 0L || (Instant.now().toEpochMilli() - businessRulesLastUpdate) > RULESET_UPDATE_INTERVAL
+	}
+
+	override fun areTrustlistCertificatesValid(): Boolean {
+		return certificateSignatures != null
+	}
+
+	override fun areValueSetsValid(): Boolean {
+		return valueSets != null
+	}
+
+	override fun areBusinessRulesValid(): Boolean {
+		return businessRules != null
+	}
+
+	override fun dataExpired(): Boolean {
+		if (trustlistLastUpdate == 0L || valueSetsLastUpdate == 0L || businessRulesLastUpdate == 0L) {
+			return true
+		}
+
+		if ((Instant.now().toEpochMilli() - trustlistLastUpdate) > TRUSTLIST_MAX_AGE) {
+			return true
+		}
+		if ((Instant.now().toEpochMilli() - valueSetsLastUpdate) > VALUESETS_MAX_AGE) {
+			return true
+		}
+		if ((Instant.now().toEpochMilli() - businessRulesLastUpdate) > RULESET_MAX_AGE) {
+			return true
+		}
+		return false
 	}
 }

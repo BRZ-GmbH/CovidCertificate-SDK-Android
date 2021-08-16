@@ -11,95 +11,110 @@
 package at.gv.brz.eval.verification
 
 import at.gv.brz.eval.Eval
-import at.gv.brz.eval.data.EvalErrorCodes
-import at.gv.brz.eval.data.state.CheckNationalRulesState
-import at.gv.brz.eval.data.state.CheckRevocationState
-import at.gv.brz.eval.data.state.CheckSignatureState
-import at.gv.brz.eval.data.state.Error
-import at.gv.brz.eval.data.state.VerificationState
+import at.gv.brz.eval.data.state.*
 import at.gv.brz.eval.models.DccHolder
-import at.gv.brz.eval.models.Jwks
-import at.gv.brz.eval.models.RevokedCertificates
-import at.gv.brz.eval.models.RuleSet
 import at.gv.brz.eval.models.TrustList
-import at.gv.brz.eval.nationalrules.NationalRulesVerifier
-import at.gv.brz.eval.nationalrules.ValidityRange
+import com.lyft.kronos.KronosClock
+import dgca.verifier.app.engine.UTC_ZONE_ID
+import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
+import ehn.techiop.hcert.kotlin.trust.TrustListV2
+import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
+import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
+import java.time.Instant
+import java.time.ZonedDateTime
 
-internal class CertificateVerifier(private val nationalRulesVerifier: NationalRulesVerifier) {
+internal class CertificateVerifier() {
 
-	suspend fun verify(dccHolder: DccHolder, trustList: TrustList): VerificationState = withContext(Dispatchers.Default) {
-		// Execute all three checks in parallel...
+	suspend fun verify(dccHolder: DccHolder, trustList: TrustList, kronosClock: KronosClock, schemaJson: String, countryCode: String, regions: List<String>, checkDefaultRegion: Boolean): VerificationResultStatus = withContext(Dispatchers.Default) {
 		val checkSignatureStateDeferred = async { checkSignature(dccHolder, trustList.signatures) }
-		// TODO: AT - Disable checks for revocation and national rules
-		//val checkRevocationStateDeferred = async { checkRevocationStatus(dccHolder, trustList.revokedCertificates) }
-		//val checkNationalRulesStateDeferred = async { checkNationalRules(dccHolder, nationalRulesVerifier, trustList.ruleSet) }
+		val deferredStates: MutableList<Deferred<VerificationResultStatus>> = mutableListOf()
 
-		// ... but wait for all of them to finish
+		var validationClock: ZonedDateTime? = null
+		if (kronosClock.getCurrentNtpTimeMs() == null) {
+			kronosClock.sync()
+		}
+
+		var kronosMilliseconds = kronosClock.getCurrentNtpTimeMs()
+		if (kronosMilliseconds != null) {
+			val instant = Instant.ofEpochMilli(kronosMilliseconds)
+			validationClock = instant.atZone(UTC_ZONE_ID)
+		}
+
+		if (validationClock != null) {
+			if (checkDefaultRegion) {
+				deferredStates.add(async {
+					checkNationalRules(
+						dccHolder,
+						validationClock,
+						trustList.businessRules,
+						trustList.valueSets,
+						schemaJson,
+						countryCode,
+						null
+					)
+				})
+			}
+			regions.forEach {
+				deferredStates.add(async {
+					checkNationalRules(
+						dccHolder,
+						validationClock,
+						trustList.businessRules,
+						trustList.valueSets,
+						schemaJson,
+						countryCode,
+						it
+					)
+				})
+			}
+		}
+
 		val checkSignatureState = checkSignatureStateDeferred.await()
+		val checkNationalRulesStates = deferredStates.map { it.await() }
 
-		// TODO: AT - Disable checks for revocation and national rules
-		//val checkRevocationState = checkRevocationStateDeferred.await()
-		//val checkNationalRulesState = checkNationalRulesStateDeferred.await()
-
-		if (checkSignatureState is CheckSignatureState.ERROR) {
-			VerificationState.ERROR(checkSignatureState.error, null /*checkNationalRulesState.validityRange() */)
-		} /*else if (checkRevocationState is CheckRevocationState.ERROR) {
-			VerificationState.ERROR(checkRevocationState.error, checkNationalRulesState.validityRange())
-		} else if (checkNationalRulesState is CheckNationalRulesState.ERROR) {
-			VerificationState.ERROR(checkNationalRulesState.error, null)
-		}*/ else if (
-			checkSignatureState == CheckSignatureState.SUCCESS
-			/*&& checkRevocationState == CheckRevocationState.SUCCESS
-			&& checkNationalRulesState is CheckNationalRulesState.SUCCESS*/
-		) {
-			VerificationState.SUCCESS(ValidityRange(null, null) /*checkNationalRulesState.validityRange*/)
-		} else if (
-			checkSignatureState is CheckSignatureState.INVALID
-			/*|| checkRevocationState is CheckRevocationState.INVALID
-			|| checkNationalRulesState is CheckNationalRulesState.INVALID
-			|| checkNationalRulesState is CheckNationalRulesState.NOT_YET_VALID
-			|| checkNationalRulesState is CheckNationalRulesState.NOT_VALID_ANYMORE*/
-		) {
-			VerificationState.INVALID(
-				checkSignatureState, null, null, null /* checkRevocationState, checkNationalRulesState,
-				checkNationalRulesState.validityRange()*/
-			)
+		if (checkSignatureState is VerificationResultStatus.ERROR) {
+			VerificationResultStatus.ERROR
+		} else if (checkSignatureState is VerificationResultStatus.SIGNATURE_INVALID) {
+			VerificationResultStatus.SIGNATURE_INVALID
 		} else {
-			VerificationState.LOADING
+			if (checkNationalRulesStates.all { it is VerificationResultStatus.SUCCESS }) {
+				if (validationClock != null) {
+					val results =
+						checkNationalRulesStates.flatMap { (it as VerificationResultStatus.SUCCESS).results }
+					VerificationResultStatus.SUCCESS(results)
+				} else {
+					VerificationResultStatus.TIMEMISSING
+				}
+			} else {
+				VerificationResultStatus.ERROR
+			}
 		}
 	}
 
-	private suspend fun checkSignature(dccHolder: DccHolder, signatures: Jwks) = withContext(Dispatchers.Default) {
+	private suspend fun checkSignature(dccHolder: DccHolder, signatures: TrustListV2) = withContext(Dispatchers.Default) {
 		try {
 			Eval.checkSignature(dccHolder, signatures)
 		} catch (e: Exception) {
-			CheckSignatureState.ERROR(Error(EvalErrorCodes.SIGNATURE_UNKNOWN, e.message.toString(), dccHolder))
-		}
-	}
-
-	private suspend fun checkRevocationStatus(
-		dccHolder: DccHolder,
-		revokedCertificates: RevokedCertificates
-	) = withContext(Dispatchers.Default) {
-		try {
-			Eval.checkRevocationStatus(dccHolder, revokedCertificates)
-		} catch (e: Exception) {
-			CheckRevocationState.ERROR(Error(EvalErrorCodes.REVOCATION_UNKNOWN, e.message.toString(), dccHolder))
+			VerificationResultStatus.ERROR
 		}
 	}
 
 	private suspend fun checkNationalRules(
 		dccHolder: DccHolder,
-		nationalRulesVerifier: NationalRulesVerifier,
-		ruleSet: RuleSet
+		validationClock: ZonedDateTime,
+		businessRules: BusinessRulesContainer,
+		valueSets: ValueSetContainer,
+		schemaJson: String,
+		countryCode: String,
+		region: String?
 	) = withContext(Dispatchers.Default) {
 		try {
-			Eval.checkNationalRules(dccHolder, nationalRulesVerifier, ruleSet)
+			Eval.checkNationalRules(dccHolder, validationClock, businessRules, valueSets, schemaJson, countryCode, region)
 		} catch (e: Exception) {
-			CheckNationalRulesState.ERROR(Error(EvalErrorCodes.RULESET_UNKNOWN, e.message.toString(), dccHolder))
+			VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(region, false)))
 		}
 	}
 

@@ -8,13 +8,13 @@ import COSE.MessageTag
 import COSE.OneKey
 import COSE.Sign1Message
 import at.gv.brz.eval.models.CertType
-import at.gv.brz.eval.models.Jwk
+import ehn.techiop.hcert.kotlin.trust.TrustedCertificateV2
 
 internal object VerificationCoseService {
 	private val TAG = VerificationCoseService::class.java.simpleName
 
 	fun decode(
-		keys: List<Jwk>,
+		keys: Array<TrustedCertificateV2>,
 		input: ByteArray,
 		type: CertType
 	): Boolean {
@@ -26,12 +26,13 @@ internal object VerificationCoseService {
 		} ?: return false
 
 		for (k in keys) {
-			val pk = k.getPublicKey() ?: continue
+			val pk = k.toCertificateAdapter().certificate.publicKey
+			//val pk = k.getPublicKey() ?: continue
 
 			try {
 				val pubKey = OneKey(pk, null)
 				if (signature.validate(pubKey)) {
-					return true
+ 					return true
 				}
 			} catch (ignored: Throwable) {
 			}
