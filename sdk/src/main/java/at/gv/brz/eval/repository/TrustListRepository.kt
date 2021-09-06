@@ -72,7 +72,8 @@ internal class TrustListRepository(
 
 	private suspend fun refreshCertificateSignatures(forceRefresh: Boolean, isRecursive: Boolean = false): Unit =
 		withContext(Dispatchers.IO) {
-			val shouldLoadSignatures = forceRefresh || !store.areTrustlistCertificatesValid() || store.shouldUpdateTrustListCertificates()
+			val shouldLoadSignatures =
+				forceRefresh || !store.areTrustlistCertificatesValid() || store.shouldUpdateTrustListCertificates()
 			if (shouldLoadSignatures) {
 				val trustListSignatureResponse = trustlistService.getTrustlistSignature()
 				val trustlistSignatureBody = trustListSignatureResponse.body()
@@ -80,11 +81,12 @@ internal class TrustListRepository(
 					val trustlistResponse = trustlistService.getTrustlist()
 					val trustlistBody = trustlistResponse.body()
 					if (trustlistResponse.isSuccessful && trustlistBody != null) {
-						val signedData = SignedData(trustlistBody.bytes(), trustlistSignatureBody.bytes())
+						val signedData =
+							SignedData(trustlistBody.bytes(), trustlistSignatureBody.bytes())
 						val trustAnchorRepository: CertificateRepository =
 							PrefilledCertificateRepository(trustAnchor)
 
-						val service = TrustListDecodeService(trustAnchorRepository)
+						val service = TrustListDecodeService(trustAnchorRepository, KronosTimeClock(kronosClock))
 						val result = service.decode(signedData)
 						if (!result.second.certificates.isEmpty()) {
 							store.certificateSignatures = result.second
@@ -107,7 +109,10 @@ internal class TrustListRepository(
 					val trustAnchorRepository: CertificateRepository =
 						PrefilledCertificateRepository(trustAnchor)
 
-					val service = ValueSetDecodeService(trustAnchorRepository)
+					val service = ValueSetDecodeService(
+						trustAnchorRepository,
+						KronosTimeClock(kronosClock)
+					)
 					val result = service.decode(signedData)
 					if (!result.second.valueSets.isEmpty()) {
 						store.valueSets = result.second
@@ -130,7 +135,7 @@ internal class TrustListRepository(
 					val trustAnchorRepository: CertificateRepository =
 						PrefilledCertificateRepository(trustAnchor)
 
-					val service = BusinessRulesDecodeService(trustAnchorRepository)
+					val service = BusinessRulesDecodeService(trustAnchorRepository, KronosTimeClock(kronosClock))
 					val result = service.decode(signedData)
 					if (!result.second.rules.isEmpty()) {
 						store.businessRules = result.second

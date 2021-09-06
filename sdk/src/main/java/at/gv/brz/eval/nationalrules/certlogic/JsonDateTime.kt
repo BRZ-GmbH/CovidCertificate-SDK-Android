@@ -37,6 +37,7 @@ class JsonDateTime protected constructor(dateTime: OffsetDateTime) : ValueNode()
 		return when (unit?.name) {
 			TimeUnit.DAY.name -> JsonDateTime(_value.plusDays(amount).atZoneSimilarLocal(ZoneId.systemDefault()).toOffsetDateTime())
 			TimeUnit.HOUR.name -> JsonDateTime(_value.plusHours(amount).atZoneSimilarLocal(ZoneId.systemDefault()).toOffsetDateTime())
+			TimeUnit.YEAR.name -> JsonDateTime(_value.plusYears(amount).atZoneSimilarLocal(ZoneId.systemDefault()).toOffsetDateTime())
 			else -> throw RuntimeException(String.format("time unit \"%s\" not handled", unit))
 		}
 	}

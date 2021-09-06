@@ -15,7 +15,8 @@ package at.gv.brz.eval.nationalrules.certlogic
 
 enum class TimeUnit(val identifier: String) {
 	DAY(identifier = "day"),
-	HOUR(identifier = "hour");
+	HOUR(identifier = "hour"),
+	YEAR(identifier = "year");
 
 	companion object {
 		fun fromName(identifier: String): TimeUnit {
