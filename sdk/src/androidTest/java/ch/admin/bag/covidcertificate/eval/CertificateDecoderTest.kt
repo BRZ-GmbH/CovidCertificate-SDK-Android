@@ -11,8 +11,8 @@
 package ch.admin.bag.covidcertificate.eval
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import ch.admin.bag.covidcertificate.eval.data.state.DecodeState
-import ch.admin.bag.covidcertificate.eval.decoder.CertificateDecoder
+import at.gv.brz.eval.data.state.DecodeState
+import at.gv.brz.eval.decoder.CertificateDecoder
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith

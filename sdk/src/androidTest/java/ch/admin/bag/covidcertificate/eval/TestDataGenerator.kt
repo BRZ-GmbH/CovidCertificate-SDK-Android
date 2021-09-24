@@ -10,7 +10,7 @@
 
 package ch.admin.bag.covidcertificate.eval
 
-import ch.admin.bag.covidcertificate.eval.euhealthcert.Eudgc
+import at.gv.brz.eval.euhealthcert.Eudgc
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
 import java.time.Duration
@@ -22,7 +22,8 @@ import java.util.*
 
 object TestDataGenerator {
 
-	private val adapter = Moshi.Builder().add(Date::class.java, Rfc3339DateJsonAdapter()).build().adapter(Eudgc::class.java)
+	private val adapter = Moshi.Builder().add(Date::class.java, Rfc3339DateJsonAdapter()).build().adapter(
+		Eudgc::class.java)
 
 	fun generateVaccineCert(
 		dn: Int, // dose number

@@ -1,5 +1,9 @@
 # Grüner Pass (CovidCertificate-SDK-Android) - Release Notes
 
+## v.2.0.3 (09.2021)
+- Zeitsimulation in Testversionen ermöglichen (EPIEMSCO-1728)
+- Fehlerbehebungen
+
 ## v.2.0.2 (08.2021)
 
 - EPIEMSCO-1562: Update certlogic-dependency to enable years in plusTime

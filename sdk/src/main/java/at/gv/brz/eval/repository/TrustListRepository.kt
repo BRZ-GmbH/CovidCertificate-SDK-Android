@@ -16,7 +16,6 @@ import at.gv.brz.eval.net.BusinessRulesService
 import at.gv.brz.eval.net.TrustlistService
 import at.gv.brz.eval.net.ValueSetsService
 import com.lyft.kronos.KronosClock
-import dgca.verifier.app.engine.UTC_ZONE_ID
 import ehn.techiop.hcert.kotlin.chain.CertificateRepository
 import ehn.techiop.hcert.kotlin.chain.impl.PrefilledCertificateRepository
 import ehn.techiop.hcert.kotlin.rules.BusinessRulesDecodeService
@@ -27,9 +26,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.joinAll
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-import java.time.Instant
-import java.time.ZoneOffset
-import java.time.ZonedDateTime
 
 internal class TrustListRepository(
 	private val trustlistService: TrustlistService,

@@ -11,10 +11,11 @@
 package ch.admin.bag.covidcertificate.eval.chain
 
 import androidx.test.ext.junit.runners.AndroidJUnit4
-import ch.admin.bag.covidcertificate.eval.data.EvalErrorCodes
-import ch.admin.bag.covidcertificate.eval.euhealthcert.Eudgc
-import ch.admin.bag.covidcertificate.eval.euhealthcert.PersonName
-import ch.admin.bag.covidcertificate.eval.models.DccHolder
+import at.gv.brz.eval.chain.TimestampService
+import at.gv.brz.eval.data.EvalErrorCodes
+import at.gv.brz.eval.euhealthcert.Eudgc
+import at.gv.brz.eval.euhealthcert.PersonName
+import at.gv.brz.eval.models.DccHolder
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test

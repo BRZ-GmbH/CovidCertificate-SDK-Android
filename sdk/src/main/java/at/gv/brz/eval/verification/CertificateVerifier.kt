@@ -14,8 +14,6 @@ import at.gv.brz.eval.Eval
 import at.gv.brz.eval.data.state.*
 import at.gv.brz.eval.models.DccHolder
 import at.gv.brz.eval.models.TrustList
-import com.lyft.kronos.KronosClock
-import dgca.verifier.app.engine.UTC_ZONE_ID
 import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
 import ehn.techiop.hcert.kotlin.trust.TrustListV2
 import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
@@ -23,25 +21,13 @@ import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
 import kotlinx.coroutines.withContext
-import java.time.Instant
 import java.time.ZonedDateTime
 
 internal class CertificateVerifier() {
 
-	suspend fun verify(dccHolder: DccHolder, trustList: TrustList, kronosClock: KronosClock, schemaJson: String, countryCode: String, regions: List<String>, checkDefaultRegion: Boolean): VerificationResultStatus = withContext(Dispatchers.Default) {
+	suspend fun verify(dccHolder: DccHolder, trustList: TrustList, validationClock: ZonedDateTime?, schemaJson: String, countryCode: String, regions: List<String>, checkDefaultRegion: Boolean): VerificationResultStatus = withContext(Dispatchers.Default) {
 		val checkSignatureStateDeferred = async { checkSignature(dccHolder, trustList.signatures) }
 		val deferredStates: MutableList<Deferred<VerificationResultStatus>> = mutableListOf()
-
-		var validationClock: ZonedDateTime? = null
-		if (kronosClock.getCurrentNtpTimeMs() == null) {
-			kronosClock.sync()
-		}
-
-		var kronosMilliseconds = kronosClock.getCurrentNtpTimeMs()
-		if (kronosMilliseconds != null) {
-			val instant = Instant.ofEpochMilli(kronosMilliseconds)
-			validationClock = instant.atZone(UTC_ZONE_ID)
-		}
 
 		if (validationClock != null) {
 			if (checkDefaultRegion) {
@@ -92,7 +78,6 @@ internal class CertificateVerifier() {
 				VerificationResultStatus.ERROR
 			}
 		}
-	}
 
 	private suspend fun checkSignature(dccHolder: DccHolder, signatures: TrustListV2) = withContext(Dispatchers.Default) {
 		try {
