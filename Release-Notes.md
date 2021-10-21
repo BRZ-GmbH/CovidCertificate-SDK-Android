@@ -1,5 +1,8 @@
 # Grüner Pass (CovidCertificate-SDK-Android) - Release Notes
 
+## v2.1.0 (10.2021)
+- Optimierung App-Verhalten & Performance (EPIEMSCO-1525)
+
 ## v.2.0.3 (09.2021)
 - Zeitsimulation in Testversionen ermöglichen (EPIEMSCO-1728)
 - Fehlerbehebungen

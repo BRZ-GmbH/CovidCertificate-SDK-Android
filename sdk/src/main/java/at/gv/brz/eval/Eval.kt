@@ -25,13 +25,7 @@ import dgca.verifier.app.engine.DefaultCertLogicEngine
 import dgca.verifier.app.engine.DefaultJsonLogicValidator
 import dgca.verifier.app.engine.Result
 import dgca.verifier.app.engine.data.*
-import dgca.verifier.app.engine.data.source.remote.rules.RuleRemote
-import dgca.verifier.app.engine.data.source.remote.rules.toRule
-import dgca.verifier.app.engine.data.source.remote.valuesets.ValueSetRemote
-import dgca.verifier.app.engine.data.source.remote.valuesets.toValueSet
-import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
 import ehn.techiop.hcert.kotlin.trust.TrustListV2
-import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -68,9 +62,9 @@ internal object Eval {
 	fun checkNationalRules(
 		dccHolder: DccHolder,
 		validationClock: ZonedDateTime,
-		businessRules: BusinessRulesContainer,
-		valueSets: ValueSetContainer,
-		schemaJson: String,
+		businessRules: List<Rule>,
+		valueSets: Map<String, List<String>>,
+		certificateSchema: JsonNode,
 		countryCode: String,
 		region: String?
 	): VerificationResultStatus {
@@ -78,22 +72,14 @@ internal object Eval {
 		registerModule(JavaTimeModule())
 		}
 
-		val schema = objectMapper.readValue(schemaJson, JsonNode::class.java)
+		val logicEngine = DefaultCertLogicEngine(DefaultAffectedFieldsDataRetriever(certificateSchema, objectMapper), DefaultJsonLogicValidator())
 
-		val logicEngine = DefaultCertLogicEngine(DefaultAffectedFieldsDataRetriever(schema, objectMapper), DefaultJsonLogicValidator())
-
-		val valueSetMap = valueSets.valueSets.map {
-			val valueSet = objectMapper.readValue(it.valueSet, ValueSetRemote::class.java).toValueSet()
-			val values = valueSet.valueSetValues.fieldNames().asSequence().toList()
-			it.name to values
-		}.toMap()
+		val valueSetMap = valueSets
 
 		val certificateType = dccHolder.certificateType()
 		val ruleCertificateType = dccHolder.ruleCertificateType()
 
-		val certLogicRules = businessRules.rules.map {
-			objectMapper.readValue(it.rule, RuleRemote::class.java).toRule()
-		}.filter {
+		val certLogicRules = businessRules.filter {
 			it.countryCode.equals(countryCode, ignoreCase = true)
 					&& validationClock.isAfter(it.validFrom)
 					&& validationClock.isBefore(it.validTo)

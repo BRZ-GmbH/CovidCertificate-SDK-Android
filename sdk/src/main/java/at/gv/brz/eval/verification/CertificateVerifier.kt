@@ -14,9 +14,9 @@ import at.gv.brz.eval.Eval
 import at.gv.brz.eval.data.state.*
 import at.gv.brz.eval.models.DccHolder
 import at.gv.brz.eval.models.TrustList
-import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
+import com.fasterxml.jackson.databind.JsonNode
+import dgca.verifier.app.engine.data.Rule
 import ehn.techiop.hcert.kotlin.trust.TrustListV2
-import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.async
@@ -25,7 +25,7 @@ import java.time.ZonedDateTime
 
 internal class CertificateVerifier() {
 
-	suspend fun verify(dccHolder: DccHolder, trustList: TrustList, validationClock: ZonedDateTime?, schemaJson: String, countryCode: String, regions: List<String>, checkDefaultRegion: Boolean): VerificationResultStatus = withContext(Dispatchers.Default) {
+	suspend fun verify(dccHolder: DccHolder, trustList: TrustList, validationClock: ZonedDateTime?, certificateSchema: JsonNode, countryCode: String, regions: List<String>, checkDefaultRegion: Boolean): VerificationResultStatus = withContext(Dispatchers.Default) {
 		val checkSignatureStateDeferred = async { checkSignature(dccHolder, trustList.signatures) }
 		val deferredStates: MutableList<Deferred<VerificationResultStatus>> = mutableListOf()
 
@@ -37,7 +37,7 @@ internal class CertificateVerifier() {
 						validationClock,
 						trustList.businessRules,
 						trustList.valueSets,
-						schemaJson,
+						certificateSchema,
 						countryCode,
 						null
 					)
@@ -50,7 +50,7 @@ internal class CertificateVerifier() {
 						validationClock,
 						trustList.businessRules,
 						trustList.valueSets,
-						schemaJson,
+						certificateSchema,
 						countryCode,
 						it
 					)
@@ -90,14 +90,14 @@ internal class CertificateVerifier() {
 	private suspend fun checkNationalRules(
 		dccHolder: DccHolder,
 		validationClock: ZonedDateTime,
-		businessRules: BusinessRulesContainer,
-		valueSets: ValueSetContainer,
-		schemaJson: String,
+		businessRules: List<Rule>,
+		valueSets: Map<String, List<String>>,
+		certificateSchema: JsonNode,
 		countryCode: String,
 		region: String?
 	) = withContext(Dispatchers.Default) {
 		try {
-			Eval.checkNationalRules(dccHolder, validationClock, businessRules, valueSets, schemaJson, countryCode, region)
+			Eval.checkNationalRules(dccHolder, validationClock, businessRules, valueSets, certificateSchema, countryCode, region)
 		} catch (e: Exception) {
 			VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(region, false)))
 		}

@@ -15,12 +15,16 @@ import android.content.SharedPreferences
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKeys
 import at.gv.brz.eval.data.moshi.RawJsonStringAdapter
-import at.gv.brz.eval.models.Jwks
-import at.gv.brz.eval.models.RevokedCertificates
-import at.gv.brz.eval.models.RuleSet
 import at.gv.brz.eval.utils.SingletonHolder
+import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
+import dgca.verifier.app.engine.data.Rule
+import dgca.verifier.app.engine.data.source.remote.rules.RuleRemote
+import dgca.verifier.app.engine.data.source.remote.rules.toRule
+import dgca.verifier.app.engine.data.source.remote.valuesets.ValueSetRemote
+import dgca.verifier.app.engine.data.source.remote.valuesets.toValueSet
 import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
 import ehn.techiop.hcert.kotlin.trust.TrustListV2
 import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
@@ -40,6 +44,10 @@ internal class CertificateSecureStorage private constructor(private val context:
 		private const val KEY_TRUSTLIST_LAST_UPDATE = "KEY_TRUSTLIST_LAST_UPDATE"
 		private const val KEY_VALUESETS_LAST_UPDATE = "KEY_VALUESETS_LAST_UPDATE"
 		private const val KEY_RULESET_LAST_UPDATE = "KEY_RULESET_LAST_UPDATE"
+
+		private const val KEY_TRUSTLIST_CONTENT_HASH = "KEY_TRUSTLIST_CONTENT_HASH"
+		private const val KEY_VALUESETS_CONTENT_HASH = "KEY_VALUESETS_CONTENT_HASH"
+		private const val KEY_RULESET_CONTENT_HASH = "KEY_RULESET_CONTENT_HASH"
 
 		private val TRUSTLIST_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(24L)
 		private val VALUESETS_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(24L)
@@ -114,8 +122,28 @@ internal class CertificateSecureStorage private constructor(private val context:
 			valueSetsFileStorage.write(context, valueSetsAdapter.toJson(value))
 			valueSetsLastUpdate = Instant.now().toEpochMilli()
 			field = value
+			mappedValueSets = null
 		}
 
+	override var mappedValueSets: Map<String, List<String>>? = null
+		get() {
+			if (field == null) {
+				val valueSetsToParse = valueSets
+				if (valueSetsToParse != null) {
+					val objectMapper = ObjectMapper().apply { this.findAndRegisterModules()
+						registerModule(JavaTimeModule())
+					}
+					field = valueSetsToParse.valueSets.map {
+						val valueSet =
+							objectMapper.readValue(it.valueSet, ValueSetRemote::class.java)
+								.toValueSet()
+						val values = valueSet.valueSetValues.fieldNames().asSequence().toList()
+						it.name to values
+					}.toMap()
+				}
+			}
+			return field
+		}
 
 	override var businessRules: BusinessRulesContainer? = null
 		get() {
@@ -128,24 +156,60 @@ internal class CertificateSecureStorage private constructor(private val context:
 			ruleSetFileStorage.write(context, businessRulesAdapter.toJson(value))
 			businessRulesLastUpdate = Instant.now().toEpochMilli()
 			field = value
+			mappedBusinessRules = null
 		}
 
-	var trustlistLastUpdate: Long
+	override var mappedBusinessRules: List<Rule>? = null
+		get() {
+			if (field == null) {
+				val businessRulesToParse = businessRules
+				if (businessRulesToParse != null) {
+					val objectMapper = ObjectMapper().apply { this.findAndRegisterModules()
+						registerModule(JavaTimeModule())
+					}
+
+					field = businessRulesToParse.rules.map {
+						objectMapper.readValue(it.rule, RuleRemote::class.java).toRule()
+					}
+				}
+			}
+			return field
+		}
+
+	override var trustlistLastUpdate: Long
 		get() = preferences.getLong(KEY_TRUSTLIST_LAST_UPDATE, 0L)
 		set(value) {
 			preferences.edit().putLong(KEY_TRUSTLIST_LAST_UPDATE, value).apply()
 		}
 
-	var valueSetsLastUpdate: Long
+	override var valueSetsLastUpdate: Long
 		get() = preferences.getLong(KEY_VALUESETS_LAST_UPDATE, 0L)
 		set(value) {
 			preferences.edit().putLong(KEY_VALUESETS_LAST_UPDATE, value).apply()
 		}
 
-	var businessRulesLastUpdate: Long
+	override var businessRulesLastUpdate: Long
 		get() = preferences.getLong(KEY_RULESET_LAST_UPDATE, 0L)
 		set(value) {
 			preferences.edit().putLong(KEY_RULESET_LAST_UPDATE, value).apply()
+		}
+
+	override var trustlistContentHash: Int
+		get() = preferences.getInt(KEY_TRUSTLIST_CONTENT_HASH, 0)
+		set(value) {
+			preferences.edit().putInt(KEY_TRUSTLIST_CONTENT_HASH, value).apply()
+		}
+
+	override var valueSetsContentHash: Int
+		get() = preferences.getInt(KEY_VALUESETS_CONTENT_HASH, 0)
+		set(value) {
+			preferences.edit().putInt(KEY_VALUESETS_CONTENT_HASH, value).apply()
+		}
+
+	override var businessRulesContentHash: Int
+		get() = preferences.getInt(KEY_RULESET_CONTENT_HASH, 0)
+		set(value) {
+			preferences.edit().putInt(KEY_RULESET_CONTENT_HASH, value).apply()
 		}
 
 	override fun shouldUpdateTrustListCertificates(): Boolean {

@@ -10,9 +10,7 @@
 
 package at.gv.brz.eval.data
 
-import at.gv.brz.eval.models.Jwks
-import at.gv.brz.eval.models.RevokedCertificates
-import at.gv.brz.eval.models.RuleSet
+import dgca.verifier.app.engine.data.Rule
 import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
 import ehn.techiop.hcert.kotlin.trust.TrustListV2
 import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
@@ -20,10 +18,18 @@ import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
 interface TrustListStore {
 
 	var certificateSignatures: TrustListV2?
+	var trustlistContentHash: Int
+	var trustlistLastUpdate: Long
 
 	var valueSets: ValueSetContainer?
+	var mappedValueSets: Map<String, List<String>>?
+	var valueSetsContentHash: Int
+	var valueSetsLastUpdate: Long
 
 	var businessRules: BusinessRulesContainer?
+	var mappedBusinessRules: List<Rule>?
+	var businessRulesContentHash: Int
+	var businessRulesLastUpdate: Long
 
 	fun areTrustlistCertificatesValid(): Boolean
 	fun areValueSetsValid(): Boolean

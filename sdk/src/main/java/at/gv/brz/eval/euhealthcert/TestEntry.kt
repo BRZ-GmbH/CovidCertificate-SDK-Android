@@ -15,7 +15,6 @@ import com.fasterxml.jackson.annotation.JsonProperty
 import com.squareup.moshi.Json
 import com.squareup.moshi.JsonClass
 import java.io.Serializable
-import java.time.format.DateTimeFormatter
 import java.util.*
 
 @JsonClass(generateAdapter = true)
@@ -24,8 +23,8 @@ data class TestEntry(
 	@Json(name = "tt") @get:JsonProperty("tt") val type: String,
 	@Json(name = "nm") @get:JsonProperty("nm") val naaTestName: String?,
 	@Json(name = "ma") @get:JsonProperty("ma") val ratTestNameAndManufacturer: String?,
-	@Json(name = "sc") @get:JsonProperty("sc") @get:JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX", timezone = "Europe/Zurich") val timestampSample: Date,
-	@Json(name = "dr") @get:JsonProperty("dr") @get:JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssXXX", timezone = "Europe/Zurich") val timestampResult: Date?,
+	@Json(name = "sc") @get:JsonProperty("sc") @get:JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssZZZZZ", timezone = "Europe/Vienna") val timestampSample: Date,
+	@Json(name = "dr") @get:JsonProperty("dr") @get:JsonFormat(pattern = "yyyy-MM-dd'T'HH:mm:ssZZZZZ", timezone = "Europe/Vienna") val timestampResult: Date?,
 	@Json(name = "tr") @get:JsonProperty("tr") val result: String,
 	@Json(name = "tc") @get:JsonProperty("tc") val testCenter: String?,
 	@Json(name = "co") @get:JsonProperty("co") val country: String,

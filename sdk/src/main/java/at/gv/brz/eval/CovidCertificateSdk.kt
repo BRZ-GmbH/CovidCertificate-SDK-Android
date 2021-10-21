@@ -26,7 +26,6 @@ import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
-import java.util.concurrent.TimeUnit
 
 object CovidCertificateSdk {
 
@@ -109,13 +108,11 @@ object CovidCertificateSdk {
 
 		@OnLifecycleEvent(Lifecycle.Event.ON_CREATE)
 		fun onCreate() {
-			certificateVerificationController.refreshTrustList(lifecycle.coroutineScope, true)
 			kronosClock.syncInBackground()
 		}
 
 		@OnLifecycleEvent(Lifecycle.Event.ON_START)
 		fun onStart() {
-			certificateVerificationController.refreshTrustList(lifecycle.coroutineScope, false)
 			kronosClock.syncInBackground()
 		}
 

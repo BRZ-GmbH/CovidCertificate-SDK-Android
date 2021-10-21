@@ -15,13 +15,14 @@ import at.gv.brz.eval.BuildConfig
 import at.gv.brz.eval.data.state.VerificationResultStatus
 import at.gv.brz.eval.models.DccHolder
 import at.gv.brz.eval.models.TrustList
+import com.fasterxml.jackson.databind.JsonNode
 import dgca.verifier.app.engine.UTC_ZONE_ID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import java.time.Instant
 import java.time.ZonedDateTime
 
-class CertificateVerificationTask(val dccHolder: DccHolder, val connectivityManager: ConnectivityManager, val schemaJson: String, val countryCode: String, val regions: List<String>, val checkDefaultRegion: Boolean, val overwriteTrustlistClock: Boolean) {
+class CertificateVerificationTask(val dccHolder: DccHolder, val connectivityManager: ConnectivityManager, val certificateSchema: JsonNode, val countryCode: String, val regions: List<String>, val checkDefaultRegion: Boolean, val overwriteTrustlistClock: Boolean) {
 
 	private val mutableVerificationStateFlow = MutableStateFlow<VerificationResultStatus>(VerificationResultStatus.LOADING)
 	val verificationStateFlow = mutableVerificationStateFlow.asStateFlow()
@@ -49,7 +50,7 @@ class CertificateVerificationTask(val dccHolder: DccHolder, val connectivityMana
 				validationClock = ZonedDateTime.now()
 			}
 
-			val state = verifier.verify(dccHolder, trustList, validationClock, schemaJson, countryCode, regions, checkDefaultRegion)
+			val state = verifier.verify(dccHolder, trustList, validationClock, certificateSchema, countryCode, regions, checkDefaultRegion)
 			mutableVerificationStateFlow.emit(state)
 		} else {
 			mutableVerificationStateFlow.emit(

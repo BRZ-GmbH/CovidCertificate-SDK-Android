@@ -11,14 +11,12 @@
 package at.gv.brz.eval.models
 
 import com.lyft.kronos.KronosClock
-import ehn.techiop.hcert.kotlin.rules.BusinessRulesContainer
+import dgca.verifier.app.engine.data.Rule
 import ehn.techiop.hcert.kotlin.trust.TrustListV2
-import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
-import java.time.ZonedDateTime
 
 data class TrustList(
 	val signatures: TrustListV2,
-	val valueSets: ValueSetContainer,
-	val businessRules: BusinessRulesContainer,
+	val valueSets: Map<String, List<String>>,
+	val businessRules: List<Rule>,
 	val kronosClock: KronosClock
 )
