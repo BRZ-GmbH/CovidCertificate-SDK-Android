@@ -13,6 +13,7 @@ package at.gv.brz.eval.data.state
 import at.gv.brz.eval.models.DccHolder
 import at.gv.brz.eval.nationalrules.NationalRulesError
 import at.gv.brz.eval.nationalrules.ValidityRange
+import java.time.OffsetDateTime
 
 
 sealed class DecodeState {
@@ -23,7 +24,7 @@ sealed class DecodeState {
 /**
  * Verification Result for a single region that was validated
  */
-data class VerificationRegionResult(val region: String?, val valid: Boolean)
+data class VerificationRegionResult(val region: String?, val valid: Boolean, val validUntil: OffsetDateTime?)
 
 /**
  * Verification Result for a single certificate. If verification was successful, it

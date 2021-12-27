@@ -19,13 +19,18 @@ import at.gv.brz.eval.models.CertType
 import at.gv.brz.eval.models.DccHolder
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
+import com.fasterxml.jackson.databind.node.ObjectNode
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.fasterxml.jackson.module.kotlin.readValue
 import dgca.verifier.app.engine.DefaultAffectedFieldsDataRetriever
 import dgca.verifier.app.engine.DefaultCertLogicEngine
 import dgca.verifier.app.engine.DefaultJsonLogicValidator
 import dgca.verifier.app.engine.Result
 import dgca.verifier.app.engine.data.*
 import ehn.techiop.hcert.kotlin.trust.TrustListV2
+import eu.ehn.dcc.certlogic.JsonDateTime
+import eu.ehn.dcc.certlogic.evaluate
+import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
 
@@ -68,8 +73,9 @@ internal object Eval {
 		countryCode: String,
 		region: String?
 	): VerificationResultStatus {
-		val objectMapper = ObjectMapper().apply { this.findAndRegisterModules()
-		registerModule(JavaTimeModule())
+		val objectMapper = ObjectMapper().apply {
+			this.findAndRegisterModules()
+			registerModule(JavaTimeModule())
 		}
 
 		val logicEngine = DefaultCertLogicEngine(DefaultAffectedFieldsDataRetriever(certificateSchema, objectMapper), DefaultJsonLogicValidator())
@@ -103,10 +109,47 @@ internal object Eval {
 
 		val failedValidations = validationResult.filter { it.result == Result.FAIL }
 		if (failedValidations.isEmpty()) {
-			return VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(region, true)))
+			val metadataRules = businessRules.filter {
+				it.countryCode.equals(countryCode, ignoreCase = true)
+						&& validationClock.isAfter(it.validFrom)
+						&& validationClock.isBefore(it.validTo)
+						&& (it.ruleCertificateType == RuleCertificateType.GENERAL || it.ruleCertificateType == ruleCertificateType)
+						&& it.region == ("$region-MD")
+			}
+
+			val dataJsonNode = prepareData(objectMapper, externalParameter, certificatePayload)
+
+			var validUntil: OffsetDateTime? = null
+			for (rule in metadataRules) {
+				try {
+					val value = evaluate(rule.logic, dataJsonNode)
+					if (value is JsonDateTime) {
+						validUntil = value.temporalValue()
+						break
+					}
+				} catch (e: Exception){}
+			}
+
+			return VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(region, true, validUntil)))
 		} else {
-			return VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(region, false)))
+			return VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(region, false, null)))
 		}
+	}
+}
+
+	private fun prepareData(
+		objectMapper: ObjectMapper,
+		externalParameter: ExternalParameter,
+		payload: String
+	): ObjectNode = objectMapper.createObjectNode().apply {
+		this.set<JsonNode>(
+			"external",
+			objectMapper.readValue(objectMapper.writeValueAsString(externalParameter))
+		)
+		this.set<JsonNode>(
+			"payload",
+			objectMapper.readValue<JsonNode>(payload)
+		)
 	}
 }
 

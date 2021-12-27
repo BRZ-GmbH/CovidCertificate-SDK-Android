@@ -36,6 +36,7 @@ internal class EncryptedFileStorage(private val path: String) {
 		val encryptedOutputStream = encryptedFile.openFileOutput()
 		try {
 			encryptedOutputStream.write(content.encodeToByteArray())
+			encryptedOutputStream.flush()
 		} catch (ignored: Exception) {
 		} finally {
 			encryptedOutputStream.close()
@@ -55,15 +56,19 @@ internal class EncryptedFileStorage(private val path: String) {
 			EncryptedFile.FileEncryptionScheme.AES256_GCM_HKDF_4KB
 		).build()
 
-		val encryptedInputStream = encryptedFile.openFileInput()
-		val byteArrayOutputStream = ByteArrayOutputStream()
-		var nextByte: Int = encryptedInputStream.read()
-		while (nextByte != -1) {
-			byteArrayOutputStream.write(nextByte)
-			nextByte = encryptedInputStream.read()
+		return try {
+			val encryptedInputStream = encryptedFile.openFileInput()
+			val byteArrayOutputStream = ByteArrayOutputStream()
+			var nextByte: Int = encryptedInputStream.read()
+			while (nextByte != -1) {
+				byteArrayOutputStream.write(nextByte)
+				nextByte = encryptedInputStream.read()
+			}
+			val bytes: ByteArray = byteArrayOutputStream.toByteArray()
+			bytes.decodeToString()
+		} catch (e: Exception) {
+			null
 		}
-		val bytes: ByteArray = byteArrayOutputStream.toByteArray()
-		return bytes.decodeToString()
 	}
 
 }

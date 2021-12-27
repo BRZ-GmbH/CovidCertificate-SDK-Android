@@ -1,5 +1,9 @@
 # Grüner Pass (CovidCertificate-SDK-Android) - Release Notes
 
+## v2.2.0
+
+- Auswertung von Metadata-Business Rules zur Anzeige des Gültigkeitsdatums von Zertifikaten (EPIEMSCO-1672)
+
 ## v2.1.0 (10.2021)
 - Optimierung App-Verhalten & Performance (EPIEMSCO-1525)
 

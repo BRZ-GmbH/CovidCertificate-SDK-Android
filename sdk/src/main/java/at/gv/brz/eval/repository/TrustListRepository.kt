@@ -88,7 +88,7 @@ internal class TrustListRepository(
 					val signatureBytes = trustlistSignatureBody.bytes()
 					val contentHash = signatureBytes.contentHashCode()
 
-					if (contentHash != store.trustlistContentHash) {
+					if (contentHash != store.trustlistContentHash || forceRefresh) {
 						val trustlistResponse = trustlistService.getTrustlist()
 						val trustlistBody = trustlistResponse.body()
 						if (trustlistResponse.isSuccessful && trustlistBody != null) {
@@ -128,7 +128,7 @@ internal class TrustListRepository(
 			if (signatureResponse.isSuccessful && signatureBody != null) {
 				val signatureBytes = signatureBody.bytes()
 				val contentHash = signatureBytes.contentHashCode()
-				if (contentHash != store.valueSetsContentHash) {
+				if (contentHash != store.valueSetsContentHash || forceRefresh) {
 					val valueSetsResponse = valueSetsService.getValueSets()
 					val valueSetsBody = valueSetsResponse.body()
 					if (valueSetsResponse.isSuccessful && valueSetsBody != null) {
@@ -168,7 +168,7 @@ internal class TrustListRepository(
 			if (signatureResponse.isSuccessful && signatureBody != null) {
 				val signatureBytes = signatureBody.bytes()
 				val contentHash = signatureBytes.contentHashCode()
-				if (contentHash != store.businessRulesContentHash) {
+				if (contentHash != store.businessRulesContentHash || forceRefresh) {
 					val businessRulesResponse = businessRulesService.getBusinessRules()
 					val businessRulesBody = businessRulesResponse.body()
 					if (businessRulesResponse.isSuccessful && businessRulesBody != null) {

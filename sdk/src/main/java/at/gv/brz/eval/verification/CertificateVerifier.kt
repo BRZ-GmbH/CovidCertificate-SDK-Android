@@ -99,7 +99,7 @@ internal class CertificateVerifier() {
 		try {
 			Eval.checkNationalRules(dccHolder, validationClock, businessRules, valueSets, certificateSchema, countryCode, region)
 		} catch (e: Exception) {
-			VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(region, false)))
+			VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(region, false, null)))
 		}
 	}
 
