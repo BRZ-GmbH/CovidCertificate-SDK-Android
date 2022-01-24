@@ -11,7 +11,6 @@
 package at.gv.brz.eval.utils
 
 import at.gv.brz.eval.euhealthcert.RecoveryEntry
-import at.gv.brz.eval.models.AcceptanceCriterias
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter.ISO_DATE
@@ -41,16 +40,6 @@ fun RecoveryEntry.getIssuer(): String {
 
 fun RecoveryEntry.getCertificateIdentifier(): String {
 	return this.certificateIdentifier
-}
-
-fun RecoveryEntry.validFromDate(acceptanceCriterias: AcceptanceCriterias): LocalDateTime? {
-	val firstPositiveResultDate = this.firstPositiveResult() ?: return null
-	return firstPositiveResultDate.plusDays(acceptanceCriterias.recoveryOffsetValidFrom.toLong())
-}
-
-fun RecoveryEntry.validUntilDate(acceptanceCriterias: AcceptanceCriterias): LocalDateTime? {
-	val firstPositiveResultDate = this.firstPositiveResult() ?: return null
-	return firstPositiveResultDate.plusDays(acceptanceCriterias.recoveryOffsetValidUntil.toLong())
 }
 
 fun RecoveryEntry.firstPositiveResult(): LocalDateTime? {

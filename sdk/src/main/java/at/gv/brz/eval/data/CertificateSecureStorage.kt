@@ -18,6 +18,7 @@ import at.gv.brz.eval.data.moshi.RawJsonStringAdapter
 import at.gv.brz.eval.utils.SingletonHolder
 import com.fasterxml.jackson.databind.ObjectMapper
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule
+import com.squareup.moshi.JsonAdapter
 import com.squareup.moshi.Moshi
 import com.squareup.moshi.kotlin.reflect.KotlinJsonAdapterFactory
 import dgca.verifier.app.engine.data.Rule
@@ -32,6 +33,7 @@ import java.io.IOException
 import java.security.GeneralSecurityException
 import java.time.Instant
 import java.util.concurrent.TimeUnit
+import kotlin.Exception
 
 internal class CertificateSecureStorage private constructor(private val context: Context) : TrustListStore {
 
@@ -123,6 +125,7 @@ internal class CertificateSecureStorage private constructor(private val context:
 			valueSetsLastUpdate = Instant.now().toEpochMilli()
 			field = value
 			mappedValueSets = null
+			mappedValueSetObjects = null
 		}
 
 	override var mappedValueSets: Map<String, List<String>>? = null
@@ -145,18 +148,35 @@ internal class CertificateSecureStorage private constructor(private val context:
 			return field
 		}
 
+	var mappedValueSetObjects: Map<String, at.gv.brz.eval.products.ValueSet>? = null
+		get() {
+			if (field == null) {
+				val valueSetsToParse = valueSets
+				if (valueSetsToParse != null) {
+					val valueSetAdapter: JsonAdapter<at.gv.brz.eval.products.ValueSet> = Moshi.Builder().build().adapter(
+						at.gv.brz.eval.products.ValueSet::class.java)
+
+					val map = mutableMapOf<String, at.gv.brz.eval.products.ValueSet>()
+					valueSetsToParse.valueSets.forEach {
+						try {
+							val valueSet = valueSetAdapter.fromJson(it.valueSet)
+							if (valueSet != null) {
+								map.put(it.name, valueSet)
+							}
+						} catch (e: Exception) {}
+					}
+					field = map
+				}
+			}
+			return field
+		}
+
 	override var businessRules: BusinessRulesContainer? = null
 		get() {
 			if (field == null) {
 				field = ruleSetFileStorage.read(context)?.let { businessRulesAdapter.fromJson(it) }
 			}
 			return field
-		}
-		set(value) {
-			ruleSetFileStorage.write(context, businessRulesAdapter.toJson(value))
-			businessRulesLastUpdate = Instant.now().toEpochMilli()
-			field = value
-			mappedBusinessRules = null
 		}
 
 	override var mappedBusinessRules: List<Rule>? = null

@@ -11,8 +11,6 @@
 package at.gv.brz.eval.utils
 
 import at.gv.brz.eval.euhealthcert.TestEntry
-import at.gv.brz.eval.models.AcceptanceCriterias
-import java.time.LocalDateTime
 import java.time.ZoneId
 import java.time.format.DateTimeFormatter
 import java.util.*
@@ -71,22 +69,5 @@ fun TestEntry.getIssuer(): String {
 
 fun TestEntry.getCertificateIdentifier(): String {
 	return this.certificateIdentifier
-}
-
-fun TestEntry.validFromDate(): LocalDateTime? {
-	return try {
-		this.timestampSample.toInstant().atZone(ZoneId.systemDefault()).toLocalDateTime()
-	} catch (e: Exception) {
-		return null
-	}
-}
-
-fun TestEntry.validUntilDate(acceptanceCriterias: AcceptanceCriterias): LocalDateTime? {
-	val startDate = this.validFromDate() ?: return null
-	return when (type) {
-		TestType.PCR.code -> startDate.plusHours(acceptanceCriterias.pcrTestValidity.toLong())
-		TestType.RAT.code -> startDate.plusHours(acceptanceCriterias.ratTestValidity.toLong())
-		else -> null
-	}
 }
 

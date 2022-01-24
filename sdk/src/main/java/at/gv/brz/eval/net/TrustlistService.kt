@@ -20,11 +20,9 @@ interface TrustlistService {
 
 	@Headers("Accept: application/octet-stream")
 	@GET("trustlist")
-	//@GET("ehn/cert/listv2")
 	suspend fun getTrustlist(): Response<ResponseBody>
 
 	@Headers("Accept: application/octet-stream")
 	@GET("trustlistsig")
-	//@GET("ehn/cert/sigv2")
 	suspend fun getTrustlistSignature(): Response<ResponseBody>
 }

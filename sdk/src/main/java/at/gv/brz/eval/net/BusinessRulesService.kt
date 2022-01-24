@@ -10,7 +10,6 @@
 
 package at.gv.brz.eval.net
 
-import at.gv.brz.eval.models.RuleSet
 import okhttp3.ResponseBody
 import retrofit2.Response
 import retrofit2.http.GET
@@ -20,12 +19,10 @@ interface BusinessRulesService {
 
 	@Headers("Accept: application/octet-stream")
 	@GET("rules")
-	//@GET("ehn/rules/v1/bin")
 	suspend fun getBusinessRules(): Response<ResponseBody>
 
 	@Headers("Accept: application/octet-stream")
 	@GET("rulessig")
-	//@GET("ehn/rules/v1/sig")
 	suspend fun getBusinessRulesSignature(): Response<ResponseBody>
 
 }

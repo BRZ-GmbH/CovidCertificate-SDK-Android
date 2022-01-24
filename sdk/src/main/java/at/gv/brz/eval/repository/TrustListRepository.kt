@@ -44,17 +44,17 @@ internal class TrustListRepository(
 	 *
 	 * @param forceRefresh False to only load data from the server if it is missing or outdated, true to always load from the server
 	 */
-	suspend fun refreshTrustList(forceRefresh: Boolean) = withContext(Dispatchers.IO) {
-		var refreshedSignatures = false
-		var refreshedValueSets = false
-		var refreshedRules = false
+	suspend fun refreshTrustList(forceRefresh: Boolean): RefreshResult = withContext(Dispatchers.IO) {
+		var refreshedSignatures = RefreshResult(false, false)
+		var refreshedValueSets = RefreshResult(false, false)
+		var refreshedRules = RefreshResult(false, false)
 		listOf(
 			launch { refreshedSignatures = refreshCertificateSignatures(forceRefresh) },
 			launch { refreshedRules = refreshBusinessRules(forceRefresh) },
 			launch { refreshedValueSets = refreshValueSets(forceRefresh) }
 		).joinAll()
 
-		refreshedSignatures || refreshedValueSets || refreshedRules
+		RefreshResult(refreshedSignatures.refreshed || refreshedValueSets.refreshed || refreshedRules.refreshed, refreshedSignatures.failed || refreshedValueSets.failed || refreshedRules.failed)
 	}
 
 	/**
@@ -76,7 +76,7 @@ internal class TrustListRepository(
 		}
 	}
 
-	private suspend fun refreshCertificateSignatures(forceRefresh: Boolean, isRecursive: Boolean = false): Boolean =
+	private suspend fun refreshCertificateSignatures(forceRefresh: Boolean): RefreshResult =
 		withContext(Dispatchers.IO) {
 			val shouldLoadSignatures =
 				forceRefresh || !store.areTrustlistCertificatesValid() || store.shouldUpdateTrustListCertificates()
@@ -106,21 +106,21 @@ internal class TrustListRepository(
 								store.trustlistContentHash = contentHash
 							}
 						}
-						true
+						RefreshResult(true, !trustlistResponse.isSuccessful)
 					} else {
 						store.trustlistLastUpdate = Instant.now().toEpochMilli()
 						// Return true if trust list needs to be forced to update (either invalid or not present)
-						!store.areTrustlistCertificatesValid() || store.shouldUpdateTrustListCertificates()
+						RefreshResult(!store.areTrustlistCertificatesValid() || store.shouldUpdateTrustListCertificates(), false)
 					}
 				} else {
-					false
+					RefreshResult(false, true)
 				}
 			} else {
-				false
+				RefreshResult(false, false)
 			}
 		}
 
-	private suspend fun refreshValueSets(forceRefresh: Boolean): Boolean = withContext(Dispatchers.IO) {
+	private suspend fun refreshValueSets(forceRefresh: Boolean): RefreshResult = withContext(Dispatchers.IO) {
 		val shouldLoadValueSets = forceRefresh || !store.areValueSetsValid() || store.shouldUpdateValueSets()
 		if (shouldLoadValueSets) {
 			val signatureResponse = valueSetsService.getValueSetsSignature()
@@ -146,21 +146,21 @@ internal class TrustListRepository(
 							store.valueSetsContentHash = contentHash
 						}
 					}
-					true
+					RefreshResult(true, !valueSetsResponse.isSuccessful)
 				} else {
 					store.valueSetsLastUpdate = Instant.now().toEpochMilli()
 					// Return true if value sets needs to be forced to update (either invalid or not present)
-					!store.areValueSetsValid() || store.shouldUpdateValueSets()
+					RefreshResult(!store.areValueSetsValid() || store.shouldUpdateValueSets(), false)
 				}
 			} else {
-				false
+				RefreshResult(false, true)
 			}
 		} else {
-			false
+			RefreshResult(false, false)
 		}
 	}
 
-	private suspend fun refreshBusinessRules(forceRefresh: Boolean): Boolean = withContext(Dispatchers.IO) {
+	private suspend fun refreshBusinessRules(forceRefresh: Boolean): RefreshResult = withContext(Dispatchers.IO) {
 		val shouldLoadBusinessRules = forceRefresh || !store.areBusinessRulesValid() || store.shouldUpdateBusinessRules()
 		if (shouldLoadBusinessRules) {
 			val signatureResponse = businessRulesService.getBusinessRulesSignature()
@@ -187,17 +187,17 @@ internal class TrustListRepository(
 							store.businessRulesContentHash = contentHash
 						}
 					}
-					true
+					RefreshResult(true, !businessRulesResponse.isSuccessful)
 				} else {
 					store.businessRulesLastUpdate = Instant.now().toEpochMilli()
 					// Return true if value sets needs to be forced to update (either invalid or not present)
-					!store.areBusinessRulesValid() || store.shouldUpdateBusinessRules()
+					RefreshResult(!store.areBusinessRulesValid() || store.shouldUpdateBusinessRules(), false)
 				}
 			} else {
-				false
+				RefreshResult(false, true)
 			}
 		} else {
-			false
+			RefreshResult(false, false)
 		}
 	}
 }

@@ -11,22 +11,14 @@
 package at.gv.brz.eval.utils
 
 import at.gv.brz.eval.euhealthcert.VaccinationEntry
-import at.gv.brz.eval.models.AcceptanceCriterias
-import at.gv.brz.eval.products.Vaccine
 import java.time.LocalDate
 import java.time.LocalDateTime
 import java.time.format.DateTimeFormatter
 import java.util.*
 
-
 fun VaccinationEntry.doseNumber(): Int = this.doseNumber
 
 fun VaccinationEntry.totalDoses(): Int = this.totalDoses
-
-fun VaccinationEntry.hadPastInfection(vaccine: Vaccine): Boolean {
-	//if the total Doses of the vaccine is bigger then the total doses in the certificate, the patient had a past infection
-	return vaccine.total_dosis_number > this.totalDoses()
-}
 
 fun VaccinationEntry.getNumberOverTotalDose(): String {
 	return " ${this.doseNumber()}/${this.totalDoses()}"
@@ -34,24 +26,6 @@ fun VaccinationEntry.getNumberOverTotalDose(): String {
 
 fun VaccinationEntry.isTargetDiseaseCorrect(): Boolean {
 	return this.disease == AcceptanceCriteriasConstants.TARGET_DISEASE
-}
-
-fun VaccinationEntry.validFromDate(vaccine: Vaccine, acceptanceCriterias: AcceptanceCriterias): LocalDateTime? {
-	val vaccineDate = this.vaccineDate() ?: return null
-	val totalNumberOfDosis = vaccine.total_dosis_number
-	// if this is a vaccine, which only needs one shot, the vaccine is valid 15 days after the date of vaccination
-	return if (totalNumberOfDosis == 1) {
-		return vaccineDate.plusDays(acceptanceCriterias.singleVaccineValidityOffset.toLong())
-	} else {
-		// In any other case the vaccine is valid from the date of vaccination
-		vaccineDate
-	}
-}
-
-/// Vaccines are valid for 179 days
-fun VaccinationEntry.validUntilDate(acceptanceCriterias: AcceptanceCriterias): LocalDateTime? {
-	val vaccinationImmunityEndDate = this.vaccineDate() ?: return null
-	return vaccinationImmunityEndDate.plusDays(acceptanceCriterias.vaccineImmunity.toLong())
 }
 
 fun VaccinationEntry.vaccineDate(): LocalDateTime? {

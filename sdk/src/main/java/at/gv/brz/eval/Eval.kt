@@ -135,7 +135,6 @@ internal object Eval {
 			return VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(region, false, null)))
 		}
 	}
-}
 
 	private fun prepareData(
 		objectMapper: ObjectMapper,

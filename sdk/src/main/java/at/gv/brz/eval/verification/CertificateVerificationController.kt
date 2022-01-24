@@ -10,6 +10,7 @@
 
 package at.gv.brz.eval.verification
 
+import at.gv.brz.eval.repository.RefreshResult
 import at.gv.brz.eval.repository.TrustListRepository
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Job
@@ -32,14 +33,14 @@ class CertificateVerificationController internal constructor(
 	/**
 	 * Trigger a refresh of the trust list unless there is already a refresh running
 	 */
-	fun refreshTrustList(coroutineScope: CoroutineScope, forceRefresh: Boolean, onCompletionCallback: (Boolean) -> Unit = {}) {
+	fun refreshTrustList(coroutineScope: CoroutineScope, forceRefresh: Boolean, onCompletionCallback: (RefreshResult) -> Unit = {}) {
 		val job = trustListLoadingJob
 		if (job == null || job.isCompleted) {
 			trustListLoadingJob = coroutineScope.launch {
 				try {
-					val didRefresh = trustListRepository.refreshTrustList(forceRefresh)
+					val refreshResult = trustListRepository.refreshTrustList(forceRefresh)
 					trustListLoadingJob = null
-					onCompletionCallback.invoke(didRefresh)
+					onCompletionCallback.invoke(refreshResult)
 				} catch (ignored: Exception) {
 					// Loading trust list failed, keep using last stored version
 				}

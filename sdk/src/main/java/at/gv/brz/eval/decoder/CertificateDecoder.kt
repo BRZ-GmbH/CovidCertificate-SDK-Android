@@ -18,7 +18,7 @@ import at.gv.brz.eval.chain.DecompressionService
 import at.gv.brz.eval.chain.NoopVerificationCoseService
 import at.gv.brz.eval.chain.PrefixIdentifierService
 import at.gv.brz.eval.data.state.DecodeState
-import at.gv.brz.eval.data.state.Error
+import at.gv.brz.eval.data.state.StateError
 
 object CertificateDecoder {
 
@@ -31,15 +31,17 @@ object CertificateDecoder {
 	 */
 	fun decode(qrCodeData: String): DecodeState {
 
-		val encoded = PrefixIdentifierService.decode(qrCodeData) ?: return DecodeState.ERROR(Error(EvalErrorCodes.DECODE_PREFIX))
+		val encoded = PrefixIdentifierService.decode(qrCodeData) ?: return DecodeState.ERROR(
+			StateError(EvalErrorCodes.DECODE_PREFIX)
+		)
 
-		val compressed = Base45Service.decode(encoded) ?: return DecodeState.ERROR(Error(EvalErrorCodes.DECODE_BASE_45))
+		val compressed = Base45Service.decode(encoded) ?: return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_BASE_45))
 
-		val cose = DecompressionService.decode(compressed) ?: return DecodeState.ERROR(Error(EvalErrorCodes.DECODE_Z_LIB))
+		val cose = DecompressionService.decode(compressed) ?: return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_Z_LIB))
 
-		val cbor = NoopVerificationCoseService.decode(cose) ?: return DecodeState.ERROR(Error(EvalErrorCodes.DECODE_COSE))
+		val cbor = NoopVerificationCoseService.decode(cose) ?: return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_COSE))
 
-		val bagdgc = CborService.decode(cbor, qrCodeData) ?: return DecodeState.ERROR(Error(EvalErrorCodes.DECODE_CBOR))
+		val bagdgc = CborService.decode(cbor, qrCodeData) ?: return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_CBOR))
 
 		bagdgc.certType = CertTypeService.decode(bagdgc.euDGC)
 

@@ -78,6 +78,7 @@ internal class CertificateVerifier() {
 				VerificationResultStatus.ERROR
 			}
 		}
+	}
 
 	private suspend fun checkSignature(dccHolder: DccHolder, signatures: TrustListV2) = withContext(Dispatchers.Default) {
 		try {

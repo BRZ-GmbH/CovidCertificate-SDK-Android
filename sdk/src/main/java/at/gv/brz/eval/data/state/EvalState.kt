@@ -11,14 +11,12 @@
 package at.gv.brz.eval.data.state
 
 import at.gv.brz.eval.models.DccHolder
-import at.gv.brz.eval.nationalrules.NationalRulesError
-import at.gv.brz.eval.nationalrules.ValidityRange
 import java.time.OffsetDateTime
 
 
 sealed class DecodeState {
 	data class SUCCESS(val dccHolder: DccHolder) : DecodeState()
-	data class ERROR(val error: Error) : DecodeState()
+	data class ERROR(val error: StateError) : DecodeState()
 }
 
 /**
@@ -60,39 +58,4 @@ sealed class VerificationResultStatus {
 	}
 }
 
-sealed class CheckSignatureState {
-	object SUCCESS : CheckSignatureState()
-	data class INVALID(val signatureErrorCode: String) : CheckSignatureState()
-	object LOADING : CheckSignatureState()
-	data class ERROR(val error: Error) : CheckSignatureState()
-}
-
-sealed class CheckRevocationState {
-	object SUCCESS : CheckRevocationState()
-	object INVALID : CheckRevocationState()
-	object LOADING : CheckRevocationState()
-	data class ERROR(val error: Error) : CheckRevocationState()
-}
-
-sealed class CheckNationalRulesState {
-	data class SUCCESS(val validityRange: ValidityRange) : CheckNationalRulesState()
-	data class NOT_YET_VALID(val validityRange: ValidityRange, val ruleId: String? = null) : CheckNationalRulesState()
-	data class NOT_VALID_ANYMORE(val validityRange: ValidityRange, val ruleId: String? = null) : CheckNationalRulesState()
-	data class INVALID(val nationalRulesError: NationalRulesError, val ruleId: String? = null) : CheckNationalRulesState()
-	object LOADING : CheckNationalRulesState()
-	data class ERROR(val error: Error) : CheckNationalRulesState()
-
-	fun validityRange(): ValidityRange? = when (this) {
-		is NOT_VALID_ANYMORE -> validityRange
-		is NOT_YET_VALID -> validityRange
-		is SUCCESS -> validityRange
-		else -> null
-	}
-}
-
-sealed class TrustListState {
-	object SUCCESS : TrustListState()
-	data class ERROR(val error: Error) : TrustListState()
-}
-
-data class Error(val code: String, val message: String? = null, val dccHolder: DccHolder? = null)
+data class StateError(val code: String, val message: String? = null, val dccHolder: DccHolder? = null)

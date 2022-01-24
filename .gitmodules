@@ -1,3 +1,0 @@
-[submodule "sdk/src/androidTest/assets"]
-	path = sdk/src/androidTest/assets/dgc-testdata
-	url = git@github.com:eu-digital-green-certificates/dgc-testdata.git

@@ -14,7 +14,6 @@ import android.content.Context
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleObserver
 import androidx.lifecycle.OnLifecycleEvent
-import androidx.lifecycle.coroutineScope
 import at.gv.brz.eval.data.CertificateSecureStorage
 import at.gv.brz.eval.net.*
 import at.gv.brz.eval.repository.TrustListRepository
@@ -22,13 +21,17 @@ import at.gv.brz.eval.verification.CertificateVerificationController
 import at.gv.brz.eval.verification.CertificateVerifier
 import com.lyft.kronos.AndroidClockFactory
 import com.lyft.kronos.KronosClock
+import dgca.verifier.app.engine.UTC_ZONE_ID
 import okhttp3.Cache
 import okhttp3.OkHttpClient
 import okhttp3.logging.HttpLoggingInterceptor
 import retrofit2.Retrofit
+import java.time.Instant
+import java.time.ZonedDateTime
 
 object CovidCertificateSdk {
 
+	private lateinit var certificateStorage: CertificateSecureStorage
 	private lateinit var certificateVerificationController: CertificateVerificationController
 	private var isInitialized = false
 	private var trustListLifecycleObserver: TrustListLifecycleObserver? = null
@@ -42,7 +45,7 @@ object CovidCertificateSdk {
 
 		kronosClock = AndroidClockFactory.createKronosClock(context, syncListener = null, ntpHosts = listOf("ts1.univie.ac.at", "ts2.univie.ac.at"))
 
-		val certificateStorage = CertificateSecureStorage.getInstance(context)
+		certificateStorage = CertificateSecureStorage.getInstance(context)
 		val trustListRepository = TrustListRepository(trustlistService, valueSetsService, businessRulesService, certificateStorage, BuildConfig.TRUST_ANCHOR_CERTIFICATE, kronosClock)
 		val certificateVerifier = CertificateVerifier()
 		certificateVerificationController = CertificateVerificationController(trustListRepository, certificateVerifier)
@@ -69,6 +72,21 @@ object CovidCertificateSdk {
 		return certificateVerificationController
 	}
 
+	fun getValueSets(): Map<String, List<String>> {
+		requireInitialized()
+
+		return certificateStorage.mappedValueSets ?: mapOf()
+	}
+
+	fun getValidationClock(): ZonedDateTime? {
+		val kronosMilliseconds = kronosClock.getCurrentNtpTimeMs()
+		if (kronosMilliseconds != null) {
+			val instant = Instant.ofEpochMilli(kronosMilliseconds)
+			return instant.atZone(UTC_ZONE_ID)
+		}
+		return null
+	}
+
 	private fun requireInitialized() {
 		if (!isInitialized) {
 			throw IllegalStateException("CovidCertificateSdk must be initialized by calling init(context)")
@@ -77,7 +95,7 @@ object CovidCertificateSdk {
 
 	private fun createRetrofit(context: Context): Retrofit {
 		val okHttpBuilder = OkHttpClient.Builder()
-			//.addInterceptor(ApiKeyInterceptor())
+			.addInterceptor(ApiKeyInterceptor())
 
 		val cacheSize = 5 * 1024 * 1024 // 5 MB
 		val cache = Cache(context.cacheDir, cacheSize.toLong())
@@ -91,8 +109,6 @@ object CovidCertificateSdk {
 		return Retrofit.Builder()
 			.baseUrl(BuildConfig.BASE_URL_TRUST_LIST)
 			.client(okHttpBuilder.build())
-			//.addConverterFactory(ScalarsConverterFactory.create())
-			//.addConverterFactory(MoshiConverterFactory.create(Moshi.Builder().add(RawJsonStringAdapter()).build()))
 			.addConverterFactory(ToByteConvertFactory())
 			.build()
 	}
