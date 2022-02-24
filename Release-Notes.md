@@ -1,5 +1,9 @@
 # Grüner Pass (CovidCertificate-SDK-Android) - Release Notes
 
+## v.2.3.2
+
+- Verbesserung des Daten-Updates (EPIEMSCO-2312)
+
 ## v.2.3.0
 
 - Code Cleanup (EPIEMSCO-2092)

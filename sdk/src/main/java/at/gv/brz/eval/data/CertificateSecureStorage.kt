@@ -51,9 +51,9 @@ internal class CertificateSecureStorage private constructor(private val context:
 		private const val KEY_VALUESETS_CONTENT_HASH = "KEY_VALUESETS_CONTENT_HASH"
 		private const val KEY_RULESET_CONTENT_HASH = "KEY_RULESET_CONTENT_HASH"
 
-		private val TRUSTLIST_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(24L)
-		private val VALUESETS_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(24L)
-		private val RULESET_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(24L)
+		private val TRUSTLIST_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(8L)
+		private val VALUESETS_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(8L)
+		private val RULESET_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(8L)
 
 		private val TRUSTLIST_MAX_AGE = TimeUnit.HOURS.toMillis(72L)
 		private val VALUESETS_MAX_AGE = TimeUnit.HOURS.toMillis(72L)
