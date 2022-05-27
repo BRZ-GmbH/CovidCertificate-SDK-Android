@@ -17,9 +17,16 @@ import ehn.techiop.hcert.kotlin.valueset.ValueSetContainer
 
 interface TrustListStore {
 
-	var certificateSignatures: TrustListV2?
+	//var certificateSignatures: TrustListV2?
+	var trustlistContentData: ByteArray?
+	var trustlistSignatureData: ByteArray?
 	var trustlistContentHash: Int
 	var trustlistLastUpdate: Long
+
+	var nationalTrustlistContentData: ByteArray?
+	var nationalTrustlistSignatureData: ByteArray?
+	var nationalTrustlistContentHash: Int
+	var nationalTrustlistLastUpdate: Long
 
 	var valueSets: ValueSetContainer?
 	var mappedValueSets: Map<String, List<String>>?
@@ -32,10 +39,12 @@ interface TrustListStore {
 	var businessRulesLastUpdate: Long
 
 	fun areTrustlistCertificatesValid(): Boolean
+	fun areNationalTrustlistCertificatesValid(): Boolean
 	fun areValueSetsValid(): Boolean
 	fun areBusinessRulesValid(): Boolean
 
 	fun shouldUpdateTrustListCertificates(): Boolean
+	fun shouldUpdateNationalTrustListCertificates(): Boolean
 	fun shouldUpdateValueSets(): Boolean
 	fun shouldUpdateBusinessRules(): Boolean
 

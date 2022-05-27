@@ -10,10 +10,7 @@
 
 package at.gv.brz.eval
 
-import at.gv.brz.eval.chain.Base45Service
-import at.gv.brz.eval.chain.DecompressionService
-import at.gv.brz.eval.chain.PrefixIdentifierService
-import at.gv.brz.eval.chain.VerificationCoseService
+import at.gv.brz.eval.chain.LocalCwtService
 import at.gv.brz.eval.data.state.*
 import at.gv.brz.eval.models.CertType
 import at.gv.brz.eval.models.DccHolder
@@ -27,9 +24,12 @@ import dgca.verifier.app.engine.DefaultCertLogicEngine
 import dgca.verifier.app.engine.DefaultJsonLogicValidator
 import dgca.verifier.app.engine.Result
 import dgca.verifier.app.engine.data.*
-import ehn.techiop.hcert.kotlin.trust.TrustListV2
+import ehn.techiop.hcert.kotlin.chain.Chain
+import ehn.techiop.hcert.kotlin.chain.DelegatingChain
+import ehn.techiop.hcert.kotlin.chain.impl.*
 import eu.ehn.dcc.certlogic.JsonDateTime
 import eu.ehn.dcc.certlogic.evaluate
+import kotlinx.datetime.Clock
 import java.time.OffsetDateTime
 import java.time.ZoneId
 import java.time.ZonedDateTime
@@ -43,21 +43,42 @@ internal object Eval {
 	 * A signature is only valid if it is signed by a trusted key, but also only if other attributes are valid
 	 * (e.g. the signature is not expired - which may be different from the legal national rules).
 	 */
-	fun checkSignature(dccHolder: DccHolder, signatures: TrustListV2): VerificationResultStatus {
+	fun checkSignature(dccHolder: DccHolder, signatures: TrustListCertificateRepository, nationalSignatures: TrustListCertificateRepository): VerificationResultStatus {
+		try {
+			val euContextService = DefaultContextIdentifierService("HC1:")
+			val euChain = Chain(
+				DefaultHigherOrderValidationService(),
+				DefaultSchemaValidationService(),
+				DefaultCborService(),
+				LocalCwtService(clock = Clock.System),
+				DefaultCoseService(signatures),
+				DefaultCompressorService(),
+				DefaultBase45Service(),
+				euContextService
+			)
 
-		/* Check that certificate type and signature timestamps are valid */
+			val atContextService = DefaultContextIdentifierService("AT1:")
+			val atChain = Chain(
+				DefaultHigherOrderValidationService(),
+				DefaultSchemaValidationService(false, arrayOf("AT-1.0.0")),
+				DefaultCborService(),
+				LocalCwtService(clock = Clock.System),
+				DefaultCoseService(nationalSignatures),
+				DefaultCompressorService(),
+				DefaultBase45Service(),
+				atContextService
+			)
 
-		val type = dccHolder.certType ?: return VerificationResultStatus.ERROR
+			val chain = DelegatingChain(euChain, euContextService, atChain, atContextService)
 
-		/* Repeat decode chain to get and verify COSE signature */
-		val encoded = PrefixIdentifierService.decode(dccHolder.qrCodeData)
-			?: return VerificationResultStatus.ERROR
-		val compressed = Base45Service.decode(encoded) ?: return VerificationResultStatus.ERROR
-		val cose = DecompressionService.decode(compressed) ?: return VerificationResultStatus.ERROR
-
-		val valid = VerificationCoseService.decode(signatures.certificates, cose, type)
-
-		return if (valid) VerificationResultStatus.SUCCESS(listOf()) else VerificationResultStatus.SIGNATURE_INVALID
+			val result = chain.decode(dccHolder.qrCodeData)
+			if (result.verificationResult.error == null) {
+				return VerificationResultStatus.SUCCESS(listOf())
+			} else {
+				return VerificationResultStatus.SIGNATURE_INVALID
+			}
+		} catch(e: Throwable) {}
+		return VerificationResultStatus.SIGNATURE_INVALID
 	}
 
 	/**
@@ -73,6 +94,9 @@ internal object Eval {
 		countryCode: String,
 		region: String?
 	): VerificationResultStatus {
+		if (dccHolder.certificateType() == CertificateType.VACCINATION_EXEMPTION) {
+			return VerificationResultStatus.SUCCESS(listOf())
+		}
 		val objectMapper = ObjectMapper().apply {
 			this.findAndRegisterModules()
 			registerModule(JavaTimeModule())
@@ -92,6 +116,7 @@ internal object Eval {
 					&& (it.ruleCertificateType == RuleCertificateType.GENERAL || it.ruleCertificateType == ruleCertificateType)
 					&& it.region == region
 		}
+
 
 		val externalParameter = ExternalParameter(
 			validationClock = validationClock,
@@ -156,14 +181,16 @@ fun DccHolder.certificateType(): CertificateType {
 	when (this.certType) {
 		CertType.VACCINATION -> return CertificateType.VACCINATION
 		CertType.RECOVERY -> return CertificateType.RECOVERY
+		CertType.VACCINATION_EXEMPTION -> return CertificateType.VACCINATION_EXEMPTION
 		else -> return CertificateType.TEST
 	}
 }
 
-fun DccHolder.ruleCertificateType(): RuleCertificateType {
+fun DccHolder.ruleCertificateType(): RuleCertificateType? {
 	when (this.certType) {
 		CertType.VACCINATION -> return RuleCertificateType.VACCINATION
 		CertType.RECOVERY -> return RuleCertificateType.RECOVERY
-		else -> return RuleCertificateType.TEST
+		CertType.TEST -> return RuleCertificateType.TEST
+		else -> return null
 	}
 }

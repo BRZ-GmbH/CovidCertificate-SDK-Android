@@ -23,4 +23,5 @@ data class Eudgc (
 	@Json(name = "v") @get:JsonProperty("v") val vaccinations: List<VaccinationEntry>?,
 	@Json(name = "t") @get:JsonProperty("t") val tests: List<TestEntry>?,
 	@Json(name = "r") @get:JsonProperty("r") val pastInfections: List<RecoveryEntry>?,
+	@Json(name = "ve") @get:JsonProperty("ve") val vaccinationExemptions: List<VaccinationExemptionEntry>?,
 ): Serializable

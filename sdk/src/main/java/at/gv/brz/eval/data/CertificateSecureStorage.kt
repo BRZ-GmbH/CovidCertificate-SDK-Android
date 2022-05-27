@@ -40,34 +40,44 @@ internal class CertificateSecureStorage private constructor(private val context:
 	companion object : SingletonHolder<CertificateSecureStorage, Context>(::CertificateSecureStorage) {
 		private const val PREFERENCES_NAME = "CertificateSecureStorage"
 		private const val FILE_PATH_CERTIFICATE_SIGNATURES = "signatures.json"
+		private const val FILE_PATH_TRUSTLIST_CONTENT = "trustlist_content"
+		private const val FILE_PATH_TRUSTLIST_SIGNATURE = "trustlist_signature"
+		private const val FILE_PATH_NATIONAL_TRUSTLIST_CONTENT = "national_trustlist_content"
+		private const val FILE_PATH_NATIONAL_TRUSTLIST_SIGNATURE = "national_trustlist_signature"
 		private const val FILE_PATH_VALUESETS = "valuesets.json"
 		private const val FILE_PATH_RULESET = "businessrules.json"
 
 		private const val KEY_TRUSTLIST_LAST_UPDATE = "KEY_TRUSTLIST_LAST_UPDATE"
+		private const val KEY_NATIONAL_TRUSTLIST_LAST_UPDATE = "KEY_NATIONAL_TRUSTLIST_LAST_UPDATE"
 		private const val KEY_VALUESETS_LAST_UPDATE = "KEY_VALUESETS_LAST_UPDATE"
 		private const val KEY_RULESET_LAST_UPDATE = "KEY_RULESET_LAST_UPDATE"
 
 		private const val KEY_TRUSTLIST_CONTENT_HASH = "KEY_TRUSTLIST_CONTENT_HASH"
+		private const val KEY_NATIONAL_TRUSTLIST_CONTENT_HASH = "KEY_NATIONAL_TRUSTLIST_CONTENT_HASH"
 		private const val KEY_VALUESETS_CONTENT_HASH = "KEY_VALUESETS_CONTENT_HASH"
 		private const val KEY_RULESET_CONTENT_HASH = "KEY_RULESET_CONTENT_HASH"
 
 		private val TRUSTLIST_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(8L)
+		private val NATIONAL_TRUSTLIST_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(8L)
 		private val VALUESETS_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(8L)
 		private val RULESET_UPDATE_INTERVAL = TimeUnit.HOURS.toMillis(8L)
 
 		private val TRUSTLIST_MAX_AGE = TimeUnit.HOURS.toMillis(72L)
+		private val NATIONAL_TRUSTLIST_MAX_AGE = TimeUnit.HOURS.toMillis(72L)
 		private val VALUESETS_MAX_AGE = TimeUnit.HOURS.toMillis(72L)
 		private val RULESET_MAX_AGE = TimeUnit.HOURS.toMillis(72L)
 
 		private val moshi = Moshi.Builder().add(RawJsonStringAdapter()).addLast(
 			KotlinJsonAdapterFactory()
 		).build()
-		private val trustListAdapter = moshi.adapter(TrustListV2::class.java)
 		private val valueSetsAdapter = moshi.adapter(ValueSetContainer::class.java)
 		private val businessRulesAdapter = moshi.adapter(BusinessRulesContainer::class.java)
 	}
 
-	private val certificateFileStorage = EncryptedFileStorage(FILE_PATH_CERTIFICATE_SIGNATURES)
+	private val trustlistContentFileStorage = EncryptedFileStorage(FILE_PATH_TRUSTLIST_CONTENT)
+	private val trustlistSignatureFileStorage = EncryptedFileStorage(FILE_PATH_TRUSTLIST_SIGNATURE)
+	private val nationalTrustlistContentFileStorage = EncryptedFileStorage(FILE_PATH_NATIONAL_TRUSTLIST_CONTENT)
+	private val nationalTrustlistSignatureFileStorage = EncryptedFileStorage(FILE_PATH_NATIONAL_TRUSTLIST_SIGNATURE)
 	private val valueSetsFileStorage = EncryptedFileStorage(FILE_PATH_VALUESETS)
 	private val ruleSetFileStorage = EncryptedFileStorage(FILE_PATH_RULESET)
 
@@ -100,7 +110,7 @@ internal class CertificateSecureStorage private constructor(private val context:
 			)
 	}
 
-	override var certificateSignatures: TrustListV2? = null
+	/*override var certificateSignatures: TrustListV2? = null
 		get() {
 			if (field == null) {
 				field = certificateFileStorage.read(context)?.let { trustListAdapter.fromJson(it) }
@@ -110,6 +120,61 @@ internal class CertificateSecureStorage private constructor(private val context:
 		set(value) {
 			certificateFileStorage.write(context, trustListAdapter.toJson(value))
 			trustlistLastUpdate = Instant.now().toEpochMilli()
+			field = value
+		}*/
+
+	override var trustlistContentData: ByteArray? = null
+		get() {
+			if (field == null) {
+				field = trustlistContentFileStorage.readByteArray(context)
+			}
+			return field
+		}
+		set(value) {
+			trustlistContentFileStorage.writeByteArray(context, value ?: ByteArray(0))
+			trustlistLastUpdate = Instant.now().toEpochMilli()
+			field = value
+			mappedValueSets = null
+			mappedValueSetObjects = null
+		}
+
+	override var trustlistSignatureData: ByteArray? = null
+		get() {
+			if (field == null) {
+				field = trustlistSignatureFileStorage.readByteArray(context)
+			}
+			return field
+		}
+		set(value) {
+			trustlistSignatureFileStorage.writeByteArray(context, value ?: ByteArray(0))
+			field = value
+		}
+
+	override var nationalTrustlistContentData: ByteArray? = null
+		get() {
+			if (field == null) {
+				field = nationalTrustlistContentFileStorage.readByteArray(context)
+			}
+			return field
+		}
+		set(value) {
+			nationalTrustlistContentFileStorage.writeByteArray(context, value ?: ByteArray(0))
+			nationalTrustlistLastUpdate = Instant.now().toEpochMilli()
+			field = value
+		}
+
+	override var nationalTrustlistSignatureData: ByteArray? = null
+		get() {
+			if (field == null) {
+				field = nationalTrustlistSignatureFileStorage.readByteArray(context)
+			}
+			return field
+		}
+
+	override var trustlistLastUpdate: Long
+		get() = preferences.getLong(KEY_TRUSTLIST_LAST_UPDATE, 0L)
+		set(value) {
+			nationalTrustlistSignatureFileStorage.writeByteArray(context, value ?: ByteArray(0))
 			field = value
 		}
 
@@ -179,6 +244,15 @@ internal class CertificateSecureStorage private constructor(private val context:
 			return field
 		}
 
+	override var trustlistContentHash: Int
+		get() = preferences.getInt(KEY_TRUSTLIST_CONTENT_HASH, 0)
+		set(value) {
+			ruleSetFileStorage.write(context, businessRulesAdapter.toJson(value))
+			businessRulesLastUpdate = Instant.now().toEpochMilli()
+			field = value
+			mappedBusinessRules = null
+		}
+
 	override var mappedBusinessRules: List<Rule>? = null
 		get() {
 			if (field == null) {
@@ -202,6 +276,12 @@ internal class CertificateSecureStorage private constructor(private val context:
 			preferences.edit().putLong(KEY_TRUSTLIST_LAST_UPDATE, value).apply()
 		}
 
+	override var nationalTrustlistLastUpdate: Long
+		get() = preferences.getLong(KEY_NATIONAL_TRUSTLIST_LAST_UPDATE, 0L)
+		set(value) {
+			preferences.edit().putLong(KEY_NATIONAL_TRUSTLIST_LAST_UPDATE, value).apply()
+		}
+
 	override var valueSetsLastUpdate: Long
 		get() = preferences.getLong(KEY_VALUESETS_LAST_UPDATE, 0L)
 		set(value) {
@@ -220,6 +300,12 @@ internal class CertificateSecureStorage private constructor(private val context:
 			preferences.edit().putInt(KEY_TRUSTLIST_CONTENT_HASH, value).apply()
 		}
 
+	override var nationalTrustlistContentHash: Int
+		get() = preferences.getInt(KEY_NATIONAL_TRUSTLIST_CONTENT_HASH, 0)
+		set(value) {
+			preferences.edit().putInt(KEY_NATIONAL_TRUSTLIST_CONTENT_HASH, value).apply()
+		}
+
 	override var valueSetsContentHash: Int
 		get() = preferences.getInt(KEY_VALUESETS_CONTENT_HASH, 0)
 		set(value) {
@@ -236,6 +322,10 @@ internal class CertificateSecureStorage private constructor(private val context:
 		return trustlistLastUpdate == 0L || (Instant.now().toEpochMilli() - trustlistLastUpdate) > TRUSTLIST_UPDATE_INTERVAL
 	}
 
+	override fun shouldUpdateNationalTrustListCertificates(): Boolean {
+		return nationalTrustlistLastUpdate == 0L || (Instant.now().toEpochMilli() - nationalTrustlistLastUpdate) > NATIONAL_TRUSTLIST_UPDATE_INTERVAL
+	}
+
 	override fun shouldUpdateValueSets(): Boolean {
 		return valueSetsLastUpdate == 0L || (Instant.now().toEpochMilli() - valueSetsLastUpdate) > VALUESETS_UPDATE_INTERVAL
 	}
@@ -245,7 +335,11 @@ internal class CertificateSecureStorage private constructor(private val context:
 	}
 
 	override fun areTrustlistCertificatesValid(): Boolean {
-		return certificateSignatures != null
+		return trustlistContentData != null && trustlistSignatureData != null
+	}
+
+	override fun areNationalTrustlistCertificatesValid(): Boolean {
+		return nationalTrustlistContentData != null && nationalTrustlistSignatureData != null
 	}
 
 	override fun areValueSetsValid(): Boolean {
@@ -257,11 +351,14 @@ internal class CertificateSecureStorage private constructor(private val context:
 	}
 
 	override fun dataExpired(): Boolean {
-		if (trustlistLastUpdate == 0L || valueSetsLastUpdate == 0L || businessRulesLastUpdate == 0L) {
+		if (trustlistLastUpdate == 0L || nationalTrustlistLastUpdate == 0L || valueSetsLastUpdate == 0L || businessRulesLastUpdate == 0L) {
 			return true
 		}
 
 		if ((Instant.now().toEpochMilli() - trustlistLastUpdate) > TRUSTLIST_MAX_AGE) {
+			return true
+		}
+		if ((Instant.now().toEpochMilli() - nationalTrustlistLastUpdate) > NATIONAL_TRUSTLIST_MAX_AGE) {
 			return true
 		}
 		if ((Instant.now().toEpochMilli() - valueSetsLastUpdate) > VALUESETS_MAX_AGE) {

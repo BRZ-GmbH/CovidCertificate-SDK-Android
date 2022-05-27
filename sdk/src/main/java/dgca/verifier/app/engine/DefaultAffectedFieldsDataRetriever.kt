@@ -79,6 +79,7 @@ private fun CertificateType.getSchemaPath(key: String): String {
         CertificateType.TEST -> "test_entry"
         CertificateType.RECOVERY -> "recovery_entry"
         CertificateType.VACCINATION -> "vaccination_entry"
+        CertificateType.VACCINATION_EXEMPTION -> "vaccination_exemption_entry"
     }
     return "\$defs.$subPath.properties.$key.description"
 }

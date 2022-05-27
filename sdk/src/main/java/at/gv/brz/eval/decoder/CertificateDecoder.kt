@@ -10,15 +10,21 @@
 
 package at.gv.brz.eval.decoder
 
-import at.gv.brz.eval.data.EvalErrorCodes
-import at.gv.brz.eval.chain.Base45Service
-import at.gv.brz.eval.chain.CborService
 import at.gv.brz.eval.chain.CertTypeService
-import at.gv.brz.eval.chain.DecompressionService
-import at.gv.brz.eval.chain.NoopVerificationCoseService
-import at.gv.brz.eval.chain.PrefixIdentifierService
+import at.gv.brz.eval.chain.LocalCwtService
+import at.gv.brz.eval.data.EvalErrorCodes
 import at.gv.brz.eval.data.state.DecodeState
 import at.gv.brz.eval.data.state.StateError
+import at.gv.brz.eval.euhealthcert.Eudgc
+import at.gv.brz.eval.models.DccHolder
+import com.squareup.moshi.JsonAdapter
+import com.squareup.moshi.Moshi
+import com.squareup.moshi.adapters.Rfc3339DateJsonAdapter
+import ehn.techiop.hcert.kotlin.chain.*
+import ehn.techiop.hcert.kotlin.chain.impl.*
+import ehn.techiop.hcert.kotlin.trust.CoseAdapter
+import kotlinx.datetime.toJavaInstant
+import java.util.*
 
 object CertificateDecoder {
 
@@ -30,22 +36,60 @@ object CertificateDecoder {
 	 * @param qrCodeData content of the scanned qr code, of the format "HC1:base45(...)"
 	 */
 	fun decode(qrCodeData: String): DecodeState {
+		val euContextService = DefaultContextIdentifierService("HC1:")
+		val atContextService = DefaultContextIdentifierService("AT1:")
 
-		val encoded = PrefixIdentifierService.decode(qrCodeData) ?: return DecodeState.ERROR(
-			StateError(EvalErrorCodes.DECODE_PREFIX)
-		)
+		val check = VerificationResult()
+		var input = qrCodeData
+		try {
+			input = euContextService.decode(input, check)
+		} catch(exception: VerificationException) {
+			try {
+				input = atContextService.decode(qrCodeData, check)
+			} catch(exception: VerificationException) {
+				return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_PREFIX))
+			}
+		}
+		val base45Decode: ByteArray
+		try {
+			base45Decode = DefaultBase45Service().decode(input, check)
+		} catch (exception: VerificationException) {
+			return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_BASE_45))
+		}
+		val decompressedData: ByteArray
+		try {
+			decompressedData = DefaultCompressorService().decode(base45Decode, check)
+		} catch (exception: VerificationException) {
+			return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_Z_LIB))
+		}
+		val coseContent: ByteArray
+		try {
+			coseContent = CoseAdapter(decompressedData).getContent()
+		} catch (exception: VerificationException) {
+			return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_COSE))
+		}
 
-		val compressed = Base45Service.decode(encoded) ?: return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_BASE_45))
+		try {
+			val cborContent = LocalCwtService().decode(coseContent, check)
+			val cborJSON = cborContent.toJsonString()
 
-		val cose = DecompressionService.decode(compressed) ?: return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_Z_LIB))
+			val adapter: JsonAdapter<Eudgc> =
+				Moshi.Builder().add(Date::class.java, Rfc3339DateJsonAdapter()).build().adapter(Eudgc::class.java)
 
-		val cbor = NoopVerificationCoseService.decode(cose) ?: return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_COSE))
+			val eudgc = adapter.fromJson(cborJSON)
 
-		val bagdgc = CborService.decode(cbor, qrCodeData) ?: return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_CBOR))
-
-		bagdgc.certType = CertTypeService.decode(bagdgc.euDGC)
-
-		return DecodeState.SUCCESS(bagdgc)
+			val expirationDate = check.expirationTime
+			val issueDate = check.issuedAt
+			val issuer = check.issuer
+			if (eudgc != null && expirationDate != null && issueDate != null && issuer != null) {
+				val dccHolder = DccHolder(eudgc, qrCodeData, expirationDate.toJavaInstant(), issueDate.toJavaInstant(), issuer)
+				dccHolder.certType = CertTypeService.decode(dccHolder.euDGC)
+				return DecodeState.SUCCESS(dccHolder)
+			} else {
+				return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_CBOR))
+			}
+		} catch (e: VerificationException) {
+			return DecodeState.ERROR(StateError(EvalErrorCodes.DECODE_CBOR))
+		}
 	}
-
 }

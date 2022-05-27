@@ -40,13 +40,14 @@ object CovidCertificateSdk {
 	fun init(context: Context) {
 		val retrofit = createRetrofit(context)
 		val trustlistService = retrofit.create(TrustlistService::class.java)
+		val nationalTrustlistService = retrofit.create(NationalTrustlistService::class.java)
 		val valueSetsService = retrofit.create(ValueSetsService::class.java)
 		val businessRulesService = retrofit.create(BusinessRulesService::class.java)
 
 		kronosClock = AndroidClockFactory.createKronosClock(context, syncListener = null, ntpHosts = listOf("ts1.univie.ac.at", "ts2.univie.ac.at"))
 
 		certificateStorage = CertificateSecureStorage.getInstance(context)
-		val trustListRepository = TrustListRepository(trustlistService, valueSetsService, businessRulesService, certificateStorage, BuildConfig.TRUST_ANCHOR_CERTIFICATE, kronosClock)
+		val trustListRepository = TrustListRepository(trustlistService, nationalTrustlistService, valueSetsService, businessRulesService, certificateStorage, BuildConfig.TRUST_ANCHOR_CERTIFICATE, kronosClock)
 		val certificateVerifier = CertificateVerifier()
 		certificateVerificationController = CertificateVerificationController(trustListRepository, certificateVerifier)
 

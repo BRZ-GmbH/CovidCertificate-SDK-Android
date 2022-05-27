@@ -13,11 +13,13 @@ package at.gv.brz.eval.repository
 import at.gv.brz.eval.data.TrustListStore
 import at.gv.brz.eval.models.*
 import at.gv.brz.eval.net.BusinessRulesService
+import at.gv.brz.eval.net.NationalTrustlistService
 import at.gv.brz.eval.net.TrustlistService
 import at.gv.brz.eval.net.ValueSetsService
 import com.lyft.kronos.KronosClock
 import ehn.techiop.hcert.kotlin.chain.CertificateRepository
 import ehn.techiop.hcert.kotlin.chain.impl.PrefilledCertificateRepository
+import ehn.techiop.hcert.kotlin.chain.impl.TrustListCertificateRepository
 import ehn.techiop.hcert.kotlin.rules.BusinessRulesDecodeService
 import ehn.techiop.hcert.kotlin.trust.SignedData
 import ehn.techiop.hcert.kotlin.trust.TrustListDecodeService
@@ -28,8 +30,10 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.time.Instant
 
+
 internal class TrustListRepository(
 	private val trustlistService: TrustlistService,
+	private val nationalTrustlistService: NationalTrustlistService,
 	private val valueSetsService: ValueSetsService,
 	private val businessRulesService: BusinessRulesService,
 	private val store: TrustListStore,
@@ -46,15 +50,17 @@ internal class TrustListRepository(
 	 */
 	suspend fun refreshTrustList(forceRefresh: Boolean): RefreshResult = withContext(Dispatchers.IO) {
 		var refreshedSignatures = RefreshResult(false, false)
+		var refreshedNationalSignatures = RefreshResult(false, false)
 		var refreshedValueSets = RefreshResult(false, false)
 		var refreshedRules = RefreshResult(false, false)
 		listOf(
 			launch { refreshedSignatures = refreshCertificateSignatures(forceRefresh) },
+			launch { refreshedNationalSignatures = refreshNationalCertificateSignatures(forceRefresh) },
 			launch { refreshedRules = refreshBusinessRules(forceRefresh) },
 			launch { refreshedValueSets = refreshValueSets(forceRefresh) }
 		).joinAll()
 
-		RefreshResult(refreshedSignatures.refreshed || refreshedValueSets.refreshed || refreshedRules.refreshed, refreshedSignatures.failed || refreshedValueSets.failed || refreshedRules.failed)
+		RefreshResult(refreshedSignatures.refreshed || refreshedNationalSignatures.refreshed || refreshedValueSets.refreshed || refreshedRules.refreshed, refreshedSignatures.failed || refreshedNationalSignatures.failed || refreshedValueSets.failed || refreshedRules.failed)
 	}
 
 	/**
@@ -62,12 +68,41 @@ internal class TrustListRepository(
 	 */
 	fun getTrustList(): TrustList? {
 		return if (store.areTrustlistCertificatesValid() && store.areValueSetsValid() && store.areBusinessRulesValid() && !store.dataExpired()) {
-			val signatures = store.certificateSignatures
+			val trustlistContentData = store.trustlistContentData
+			val trustlistSignatureData = store.trustlistSignatureData
+
+			val nationalTrustlistContentData = store.nationalTrustlistContentData
+			val nationalTrustlistSignatureData = store.nationalTrustlistSignatureData
+
 			val valueSets = store.mappedValueSets
 			val businessRules = store.mappedBusinessRules
 
-			if (signatures != null && valueSets != null && businessRules != null) {
-				TrustList(signatures, valueSets, businessRules, kronosClock)
+			if (trustlistContentData != null && trustlistSignatureData != null && nationalTrustlistContentData != null && nationalTrustlistSignatureData != null&& valueSets != null && businessRules != null) {
+				val signedData = SignedData(trustlistContentData, trustlistSignatureData)
+				val trustAnchorRepository: CertificateRepository =
+					PrefilledCertificateRepository(trustAnchor)
+
+				val nationalSignedData = SignedData(nationalTrustlistContentData, nationalTrustlistSignatureData)
+
+				try {
+					TrustList(
+						TrustListCertificateRepository(
+							signedData,
+							trustAnchorRepository,
+							KronosTimeClock(kronosClock)
+						),
+						TrustListCertificateRepository(
+							nationalSignedData,
+							trustAnchorRepository,
+							KronosTimeClock(kronosClock)
+						),
+						valueSets,
+						businessRules,
+						kronosClock
+					)
+				} catch (e: Throwable) {
+					null
+				}
 			} else {
 				null
 			}
@@ -87,30 +122,87 @@ internal class TrustListRepository(
 				if (trustListSignatureResponse.isSuccessful && trustlistSignatureBody != null) {
 					val signatureBytes = trustlistSignatureBody.bytes()
 					val contentHash = signatureBytes.contentHashCode()
-
 					if (contentHash != store.trustlistContentHash || forceRefresh) {
-						val trustlistResponse = trustlistService.getTrustlist()
-						val trustlistBody = trustlistResponse.body()
-						if (trustlistResponse.isSuccessful && trustlistBody != null) {
-							val signedData =
-								SignedData(trustlistBody.bytes(), signatureBytes)
-							val trustAnchorRepository: CertificateRepository =
-								PrefilledCertificateRepository(trustAnchor)
-							val service = TrustListDecodeService(
-								trustAnchorRepository,
-								KronosTimeClock(kronosClock)
-							)
-							val result = service.decode(signedData)
-							if (!result.second.certificates.isEmpty()) {
-								store.certificateSignatures = result.second
-								store.trustlistContentHash = contentHash
+						try {
+							val trustlistResponse = trustlistService.getTrustlist()
+							val trustlistBody = trustlistResponse.body()
+							if (trustlistResponse.isSuccessful && trustlistBody != null) {
+								val trustlistBodyBytes = trustlistBody.bytes()
+								val signedData =
+									SignedData(trustlistBodyBytes, signatureBytes)
+								val trustAnchorRepository: CertificateRepository =
+									PrefilledCertificateRepository(trustAnchor)
+								val service = TrustListDecodeService(
+									trustAnchorRepository,
+									KronosTimeClock(kronosClock)
+								)
+								val result = service.decode(signedData)
+								if (!result.second.certificates.isEmpty()) {
+									store.trustlistContentData = trustlistBodyBytes
+									store.trustlistSignatureData = signatureBytes
+									//store.certificateSignatures = result.second
+									store.trustlistContentHash = contentHash
+								}
 							}
+							RefreshResult(true, !trustlistResponse.isSuccessful)
+						} catch (e: Throwable) {
+							RefreshResult(false, true)
 						}
 						RefreshResult(true, !trustlistResponse.isSuccessful)
 					} else {
 						store.trustlistLastUpdate = Instant.now().toEpochMilli()
 						// Return true if trust list needs to be forced to update (either invalid or not present)
 						RefreshResult(!store.areTrustlistCertificatesValid() || store.shouldUpdateTrustListCertificates(), false)
+					}
+				} else {
+					RefreshResult(false, true)
+				}
+			} else {
+				RefreshResult(false, false)
+			}
+		}
+
+	private suspend fun refreshNationalCertificateSignatures(forceRefresh: Boolean): RefreshResult =
+		withContext(Dispatchers.IO) {
+			val shouldLoadSignatures =
+				forceRefresh || !store.areNationalTrustlistCertificatesValid() || store.shouldUpdateNationalTrustListCertificates()
+			if (shouldLoadSignatures) {
+				val trustListSignatureResponse = nationalTrustlistService.getTrustlistSignature()
+				val trustlistSignatureBody = trustListSignatureResponse.body()
+
+				if (trustListSignatureResponse.isSuccessful && trustlistSignatureBody != null) {
+					val signatureBytes = trustlistSignatureBody.bytes()
+					val contentHash = signatureBytes.contentHashCode()
+					if (contentHash != store.nationalTrustlistContentHash || forceRefresh) {
+						try {
+							val trustlistResponse = nationalTrustlistService.getTrustlist()
+							val trustlistBody = trustlistResponse.body()
+							if (trustlistResponse.isSuccessful && trustlistBody != null) {
+								val trustlistBodyBytes = trustlistBody.bytes()
+								val signedData =
+									SignedData(trustlistBodyBytes, signatureBytes)
+								val trustAnchorRepository: CertificateRepository =
+									PrefilledCertificateRepository(trustAnchor)
+								val service = TrustListDecodeService(
+									trustAnchorRepository,
+									KronosTimeClock(kronosClock)
+								)
+								val result = service.decode(signedData)
+								if (!result.second.certificates.isEmpty()) {
+									store.nationalTrustlistContentData = trustlistBodyBytes
+									store.nationalTrustlistSignatureData = signatureBytes
+									//store.certificateSignatures = result.second
+									store.nationalTrustlistContentHash = contentHash
+								}
+							}
+							RefreshResult(true, !trustlistResponse.isSuccessful)
+						} catch (e: Throwable) {
+							RefreshResult(false, true)
+						}
+					} else {
+						store.nationalTrustlistLastUpdate = Instant.now().toEpochMilli()
+						// Return true if trust list needs to be forced to update (either invalid or not present)
+						RefreshResult(!store.areNationalTrustlistCertificatesValid() || store.shouldUpdateNationalTrustListCertificates(), false)
 					}
 				} else {
 					RefreshResult(false, true)
@@ -129,24 +221,28 @@ internal class TrustListRepository(
 				val signatureBytes = signatureBody.bytes()
 				val contentHash = signatureBytes.contentHashCode()
 				if (contentHash != store.valueSetsContentHash || forceRefresh) {
-					val valueSetsResponse = valueSetsService.getValueSets()
-					val valueSetsBody = valueSetsResponse.body()
-					if (valueSetsResponse.isSuccessful && valueSetsBody != null) {
-						val signedData = SignedData(valueSetsBody.bytes(), signatureBytes)
-						val trustAnchorRepository: CertificateRepository =
-							PrefilledCertificateRepository(trustAnchor)
+					try {
+						val valueSetsResponse = valueSetsService.getValueSets()
+						val valueSetsBody = valueSetsResponse.body()
+						if (valueSetsResponse.isSuccessful && valueSetsBody != null) {
+							val signedData = SignedData(valueSetsBody.bytes(), signatureBytes)
+							val trustAnchorRepository: CertificateRepository =
+								PrefilledCertificateRepository(trustAnchor)
 
-						val service = ValueSetDecodeService(
-							trustAnchorRepository,
-							KronosTimeClock(kronosClock)
-						)
-						val result = service.decode(signedData)
-						if (!result.second.valueSets.isEmpty()) {
-							store.valueSets = result.second
-							store.valueSetsContentHash = contentHash
+							val service = ValueSetDecodeService(
+								trustAnchorRepository,
+								KronosTimeClock(kronosClock)
+							)
+							val result = service.decode(signedData)
+							if (!result.second.valueSets.isEmpty()) {
+								store.valueSets = result.second
+								store.valueSetsContentHash = contentHash
+							}
 						}
+						RefreshResult(true, !valueSetsResponse.isSuccessful)
+					} catch (e: Throwable) {
+						RefreshResult(false, true)
 					}
-					RefreshResult(true, !valueSetsResponse.isSuccessful)
 				} else {
 					store.valueSetsLastUpdate = Instant.now().toEpochMilli()
 					// Return true if value sets needs to be forced to update (either invalid or not present)
@@ -169,25 +265,30 @@ internal class TrustListRepository(
 				val signatureBytes = signatureBody.bytes()
 				val contentHash = signatureBytes.contentHashCode()
 				if (contentHash != store.businessRulesContentHash || forceRefresh) {
+					try {
 					val businessRulesResponse = businessRulesService.getBusinessRules()
 					val businessRulesBody = businessRulesResponse.body()
-					if (businessRulesResponse.isSuccessful && businessRulesBody != null) {
-						val signedData =
-							SignedData(businessRulesBody.bytes(), signatureBytes)
-						val trustAnchorRepository: CertificateRepository =
-							PrefilledCertificateRepository(trustAnchor)
+						if (businessRulesResponse.isSuccessful && businessRulesBody != null) {
 
-						val service = BusinessRulesDecodeService(
-							trustAnchorRepository,
-							KronosTimeClock(kronosClock)
-						)
-						val result = service.decode(signedData)
-						if (!result.second.rules.isEmpty()) {
-							store.businessRules = result.second
-							store.businessRulesContentHash = contentHash
+							val signedData =
+								SignedData(businessRulesBody.bytes(), signatureBytes)
+							val trustAnchorRepository: CertificateRepository =
+								PrefilledCertificateRepository(trustAnchor)
+
+							val service = BusinessRulesDecodeService(
+								trustAnchorRepository,
+								KronosTimeClock(kronosClock)
+							)
+							val result = service.decode(signedData)
+							if (!result.second.rules.isEmpty()) {
+								store.businessRules = result.second
+								store.businessRulesContentHash = contentHash
+							}
 						}
+						RefreshResult(true, !businessRulesResponse.isSuccessful)
+					} catch (e: Throwable) {
+						RefreshResult(false, true)
 					}
-					RefreshResult(true, !businessRulesResponse.isSuccessful)
 				} else {
 					store.businessRulesLastUpdate = Instant.now().toEpochMilli()
 					// Return true if value sets needs to be forced to update (either invalid or not present)

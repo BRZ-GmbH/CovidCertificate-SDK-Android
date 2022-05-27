@@ -1,5 +1,10 @@
 # Grüner Pass (CovidCertificate-SDK-Android) - Release Notes
 
+## v.2.3.3
+
+- Unterstützung für Impfausnahmen (EPIEMSCO-2561)
+- Anbindung von AT-Trustlist für Impfausnahmen (EPIEMSCO-2718)
+
 ## v.2.3.2
 
 - Verbesserung des Daten-Updates (EPIEMSCO-2312)

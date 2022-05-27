@@ -11,50 +11,55 @@
 package at.gv.brz.eval.verification
 
 import at.gv.brz.eval.Eval
+import at.gv.brz.eval.certificateType
 import at.gv.brz.eval.data.state.*
 import at.gv.brz.eval.models.DccHolder
 import at.gv.brz.eval.models.TrustList
+import at.gv.brz.eval.utils.validUntilDate
 import com.fasterxml.jackson.databind.JsonNode
+import dgca.verifier.app.engine.data.CertificateType
 import dgca.verifier.app.engine.data.Rule
+import ehn.techiop.hcert.kotlin.chain.impl.TrustListCertificateRepository
 import ehn.techiop.hcert.kotlin.trust.TrustListV2
-import kotlinx.coroutines.Deferred
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.async
-import kotlinx.coroutines.withContext
+import kotlinx.coroutines.*
 import java.time.ZonedDateTime
 
 internal class CertificateVerifier() {
 
 	suspend fun verify(dccHolder: DccHolder, trustList: TrustList, validationClock: ZonedDateTime?, certificateSchema: JsonNode, countryCode: String, regions: List<String>, checkDefaultRegion: Boolean): VerificationResultStatus = withContext(Dispatchers.Default) {
-		val checkSignatureStateDeferred = async { checkSignature(dccHolder, trustList.signatures) }
+		val checkSignatureStateDeferred = async { checkSignature(dccHolder, trustList.signatures, trustList.nationalSignatures) }
 		val deferredStates: MutableList<Deferred<VerificationResultStatus>> = mutableListOf()
 
 		if (validationClock != null) {
-			if (checkDefaultRegion) {
-				deferredStates.add(async {
-					checkNationalRules(
-						dccHolder,
-						validationClock,
-						trustList.businessRules,
-						trustList.valueSets,
-						certificateSchema,
-						countryCode,
-						null
-					)
-				})
-			}
-			regions.forEach {
-				deferredStates.add(async {
-					checkNationalRules(
-						dccHolder,
-						validationClock,
-						trustList.businessRules,
-						trustList.valueSets,
-						certificateSchema,
-						countryCode,
-						it
-					)
-				})
+			if (dccHolder.certificateType() == CertificateType.VACCINATION_EXEMPTION) {
+				deferredStates.add(CompletableDeferred(VerificationResultStatus.SUCCESS(listOf(VerificationRegionResult(null, dccHolder.euDGC.vaccinationExemptions?.first()?.validUntilDate()?.isAfter(validationClock.toLocalDateTime()) == true, null)))))
+			} else {
+				if (checkDefaultRegion) {
+					deferredStates.add(async {
+						checkNationalRules(
+							dccHolder,
+							validationClock,
+							trustList.businessRules,
+							trustList.valueSets,
+							certificateSchema,
+							countryCode,
+							null
+						)
+					})
+				}
+				regions.forEach {
+					deferredStates.add(async {
+						checkNationalRules(
+							dccHolder,
+							validationClock,
+							trustList.businessRules,
+							trustList.valueSets,
+							certificateSchema,
+							countryCode,
+							it
+						)
+					})
+				}
 			}
 		}
 
@@ -80,9 +85,9 @@ internal class CertificateVerifier() {
 		}
 	}
 
-	private suspend fun checkSignature(dccHolder: DccHolder, signatures: TrustListV2) = withContext(Dispatchers.Default) {
+	private suspend fun checkSignature(dccHolder: DccHolder, signatures: TrustListCertificateRepository, nationalSignatures: TrustListCertificateRepository) = withContext(Dispatchers.Default) {
 		try {
-			Eval.checkSignature(dccHolder, signatures)
+			Eval.checkSignature(dccHolder, signatures, nationalSignatures)
 		} catch (e: Exception) {
 			VerificationResultStatus.ERROR
 		}

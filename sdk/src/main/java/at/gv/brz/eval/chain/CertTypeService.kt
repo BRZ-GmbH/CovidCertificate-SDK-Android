@@ -42,6 +42,12 @@ internal object CertTypeService {
 				type = CertType.VACCINATION
 			}
 		}
+		dcc.vaccinationExemptions?.filterNotNull()?.size?.also { numVaccinationExemptions ->
+			if (numVaccinationExemptions > 0) {
+				numContainedContent += numVaccinationExemptions
+				type = CertType.VACCINATION_EXEMPTION
+			}
+		}
 
 		return if (numContainedContent == 1) type else null
 	}

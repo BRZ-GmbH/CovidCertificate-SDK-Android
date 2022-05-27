@@ -26,11 +26,12 @@ enum class RuleCertificateType {
 }
 
 enum class CertificateType {
-    TEST, VACCINATION, RECOVERY;
+    TEST, VACCINATION, RECOVERY, VACCINATION_EXEMPTION;
 
-    fun toRuleCertificateType(): RuleCertificateType = when (this) {
+    fun toRuleCertificateType(): RuleCertificateType? = when (this) {
         TEST -> RuleCertificateType.TEST
         VACCINATION -> RuleCertificateType.VACCINATION
         RECOVERY -> RuleCertificateType.RECOVERY
+        VACCINATION_EXEMPTION -> null
     }
 }
