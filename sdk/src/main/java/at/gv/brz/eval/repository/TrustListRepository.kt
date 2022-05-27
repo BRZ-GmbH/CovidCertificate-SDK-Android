@@ -148,7 +148,6 @@ internal class TrustListRepository(
 						} catch (e: Throwable) {
 							RefreshResult(false, true)
 						}
-						RefreshResult(true, !trustlistResponse.isSuccessful)
 					} else {
 						store.trustlistLastUpdate = Instant.now().toEpochMilli()
 						// Return true if trust list needs to be forced to update (either invalid or not present)
@@ -266,8 +265,8 @@ internal class TrustListRepository(
 				val contentHash = signatureBytes.contentHashCode()
 				if (contentHash != store.businessRulesContentHash || forceRefresh) {
 					try {
-					val businessRulesResponse = businessRulesService.getBusinessRules()
-					val businessRulesBody = businessRulesResponse.body()
+						val businessRulesResponse = businessRulesService.getBusinessRules()
+						val businessRulesBody = businessRulesResponse.body()
 						if (businessRulesResponse.isSuccessful && businessRulesBody != null) {
 
 							val signedData =

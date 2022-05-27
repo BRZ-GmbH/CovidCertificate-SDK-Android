@@ -134,8 +134,6 @@ internal class CertificateSecureStorage private constructor(private val context:
 			trustlistContentFileStorage.writeByteArray(context, value ?: ByteArray(0))
 			trustlistLastUpdate = Instant.now().toEpochMilli()
 			field = value
-			mappedValueSets = null
-			mappedValueSetObjects = null
 		}
 
 	override var trustlistSignatureData: ByteArray? = null
@@ -170,9 +168,6 @@ internal class CertificateSecureStorage private constructor(private val context:
 			}
 			return field
 		}
-
-	override var trustlistLastUpdate: Long
-		get() = preferences.getLong(KEY_TRUSTLIST_LAST_UPDATE, 0L)
 		set(value) {
 			nationalTrustlistSignatureFileStorage.writeByteArray(context, value ?: ByteArray(0))
 			field = value
@@ -243,9 +238,6 @@ internal class CertificateSecureStorage private constructor(private val context:
 			}
 			return field
 		}
-
-	override var trustlistContentHash: Int
-		get() = preferences.getInt(KEY_TRUSTLIST_CONTENT_HASH, 0)
 		set(value) {
 			ruleSetFileStorage.write(context, businessRulesAdapter.toJson(value))
 			businessRulesLastUpdate = Instant.now().toEpochMilli()
